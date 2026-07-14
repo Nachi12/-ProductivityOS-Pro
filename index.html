@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ProductivityOS Pro</title>
+    
+    <!-- Meta Tags & PWA -->
+    <meta name="description" content="Premium Enterprise-Grade Productivity Operating System">
+    <meta name="theme-color" content="#ffffff">
+    <link rel="manifest" href="manifest.json">
+    
+    <!-- Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Icons: FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- CSS Architecture -->
+    <link rel="stylesheet" href="css/reset.css">
+    <link rel="stylesheet" href="css/variables.css">
+    <link rel="stylesheet" href="css/theme.css">
+    <link rel="stylesheet" href="css/layout.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="css/utilities.css">
+    <link rel="stylesheet" href="css/animations.css">
+    <link rel="stylesheet" href="css/responsive.css">
+    
+    <!-- Module Specific CSS -->
+    <link rel="stylesheet" href="css/dashboard.css">
+    <link rel="stylesheet" href="css/tasks.css">
+</head>
+<body data-theme="system">
+
+    <!-- Sidebar Navigation -->
+    <aside id="sidebar" class="sidebar">
+        <div class="sidebar-header">
+            <div class="brand">
+                <div class="brand-logo"><i class="fa-solid fa-layer-group"></i></div>
+                <span class="brand-text">ProductivityOS</span>
+            </div>
+            <button id="sidebar-toggle" aria-label="Toggle Sidebar"><i class="fa-solid fa-chevron-left"></i></button>
+        </div>
+        
+        <nav class="sidebar-nav">
+            <div class="nav-section">
+                <span class="nav-section-title">Workspace</span>
+                <a href="#dashboard" class="nav-item active" data-view="dashboard">
+                    <i class="fa-solid fa-house"></i> <span class="nav-text">Dashboard</span>
+                </a>
+                <a href="#tasks" class="nav-item" data-view="tasks">
+                    <i class="fa-solid fa-circle-check"></i> <span class="nav-text">Tasks</span>
+                </a>
+                <a href="#projects" class="nav-item" data-view="projects">
+                    <i class="fa-solid fa-folder-tree"></i> <span class="nav-text">Projects</span>
+                </a>
+                <a href="#goals" class="nav-item" data-view="goals">
+                    <i class="fa-solid fa-bullseye"></i> <span class="nav-text">Goals</span>
+                </a>
+                <a href="#calendar" class="nav-item" data-view="calendar">
+                    <i class="fa-regular fa-calendar"></i> <span class="nav-text">Calendar</span>
+                </a>
+            </div>
+
+            <div class="nav-section">
+                <span class="nav-section-title">Life & Growth</span>
+                <a href="#habits" class="nav-item" data-view="habits">
+                    <i class="fa-solid fa-repeat"></i> <span class="nav-text">Habits</span>
+                </a>
+                <a href="#finance" class="nav-item" data-view="finance">
+                    <i class="fa-solid fa-chart-pie"></i> <span class="nav-text">Finance</span>
+                </a>
+                <a href="#reading" class="nav-item" data-view="reading">
+                    <i class="fa-solid fa-book-open"></i> <span class="nav-text">Reading</span>
+                </a>
+            </div>
+
+            <div class="nav-section">
+                <span class="nav-section-title">Knowledge</span>
+                <a href="#knowledge" class="nav-item" data-view="knowledge">
+                    <i class="fa-solid fa-brain"></i> <span class="nav-text">Knowledge Vault</span>
+                </a>
+                <a href="#notes" class="nav-item" data-view="notes">
+                    <i class="fa-regular fa-note-sticky"></i> <span class="nav-text">Notes</span>
+                </a>
+                <a href="#meetings" class="nav-item" data-view="meetings">
+                    <i class="fa-solid fa-users"></i> <span class="nav-text">Meetings</span>
+                </a>
+            </div>
+        </nav>
+
+        <div class="sidebar-footer">
+            <a href="#analytics" class="nav-item" data-view="analytics">
+                <i class="fa-solid fa-chart-line"></i> <span class="nav-text">Analytics</span>
+            </a>
+            <a href="#settings" class="nav-item" data-view="settings">
+                <i class="fa-solid fa-gear"></i> <span class="nav-text">Settings</span>
+            </a>
+        </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main id="main-content" class="main-content">
+        
+        <!-- Topbar -->
+        <header class="topbar">
+            <div class="topbar-search">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="text" id="global-search" placeholder="Search everywhere... (Cmd+K)" aria-label="Global Search">
+            </div>
+            <div class="topbar-actions">
+                <button id="theme-switcher" class="icon-btn tooltip" aria-label="Toggle Theme" data-tooltip="Switch Theme">
+                    <i class="fa-solid fa-moon"></i>
+                </button>
+                <button id="notifications-btn" class="icon-btn tooltip" aria-label="Notifications" data-tooltip="Alerts">
+                    <i class="fa-regular fa-bell"></i>
+                </button>
+                <div class="user-avatar">OS</div>
+            </div>
+        </header>
+
+        <!-- VIEWS CONTAINER -->
+        <div id="views-container" class="views-container">
+            
+            <!-- Dashboard View -->
+            <section id="view-dashboard" class="view active">
+                <div class="view-header">
+                    <div>
+                        <h1 id="greeting">Good morning.</h1>
+                        <p class="subtitle text-muted" id="current-date-display">Let's make today count.</p>
+                    </div>
+                    <div class="header-actions">
+                        <button class="btn btn-primary"><i class="fa-solid fa-plus"></i> Quick Add</button>
+                    </div>
+                </div>
+
+                <div class="dashboard-grid">
+                    <!-- Top KPIs -->
+                    <div class="card kpi-card">
+                        <div class="kpi-icon blue"><i class="fa-solid fa-check-double"></i></div>
+                        <div class="kpi-data">
+                            <h3>Tasks Completed</h3>
+                            <span class="kpi-value" id="kpi-tasks">0</span>
+                        </div>
+                    </div>
+                    <div class="card kpi-card">
+                        <div class="kpi-icon green"><i class="fa-solid fa-fire"></i></div>
+                        <div class="kpi-data">
+                            <h3>Habit Streak</h3>
+                            <span class="kpi-value" id="kpi-streak">0 Days</span>
+                        </div>
+                    </div>
+                    <div class="card kpi-card">
+                        <div class="kpi-icon purple"><i class="fa-solid fa-stopwatch"></i></div>
+                        <div class="kpi-data">
+                            <h3>Deep Work</h3>
+                            <span class="kpi-value" id="kpi-focus">0h 0m</span>
+                        </div>
+                    </div>
+
+                    <!-- Focus & Capture -->
+                    <div class="card span-2 dashboard-tasks">
+                        <div class="card-header">
+                            <h2><i class="fa-solid fa-crosshairs"></i> Today's Focus</h2>
+                        </div>
+                        <div class="card-body">
+                            <ul id="dashboard-task-list" class="task-list minimal">
+                                <!-- Populated by JS -->
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="card dashboard-capture">
+                        <div class="card-header">
+                            <h2><i class="fa-solid fa-inbox"></i> Brain Dump</h2>
+                        </div>
+                        <div class="card-body">
+                            <textarea id="brain-dump-input" placeholder="Capture an idea, note, or task..." rows="3"></textarea>
+                            <div style="display:flex;gap:8px;margin-top:12px;">
+                                <button class="btn btn-primary" id="brain-dump-save-task" style="flex:1;justify-content:center;"><i class="fa-solid fa-circle-check"></i> Save as Task</button>
+                                <button class="btn btn-secondary" id="brain-dump-save-note" style="flex:1;justify-content:center;"><i class="fa-regular fa-note-sticky"></i> Save as Note</button>
+                            </div>
+                            <ul id="brain-dump-list" style="list-style:none;padding:0;margin:12px 0 0;max-height:180px;overflow-y:auto;"></ul>
+                        </div>
+                    </div>
+
+                    <!-- Charts -->
+                    <div class="card span-3 dashboard-chart">
+                        <div class="card-header">
+                            <h2><i class="fa-solid fa-chart-area"></i> Weekly Productivity</h2>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="productivityChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Tasks View -->
+            <section id="view-tasks" class="view">
+                <div class="view-header">
+                    <div>
+                        <h1>Tasks</h1>
+                        <p class="subtitle text-muted">Master Task Database</p>
+                    </div>
+                    <div class="header-actions view-toggles">
+                        <button class="btn icon-btn active" data-layout="list"><i class="fa-solid fa-list"></i></button>
+                        <button class="btn icon-btn" data-layout="kanban"><i class="fa-solid fa-columns"></i></button>
+                        <button class="btn btn-primary" id="new-task-btn"><i class="fa-solid fa-plus"></i> New Task</button>
+                    </div>
+                </div>
+                
+                <div class="filters-bar card">
+                    <input type="text" class="input-light" placeholder="Filter tasks...">
+                    <select class="input-light"><option>All Projects</option></select>
+                    <select class="input-light"><option>Status</option></select>
+                </div>
+
+                <div id="task-layout-container" class="task-layout list-layout">
+                    <div class="table-responsive card">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Status</th>
+                                    <th>Task Name</th>
+                                    <th>Priority</th>
+                                    <th>Project</th>
+                                    <th>Due Date</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="master-task-table-body">
+                                <!-- JS Populated -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- Settings View (Crucial for Storage Management) -->
+            <section id="view-settings" class="view">
+                <div class="view-header">
+                    <h1>Settings</h1>
+                </div>
+                <div class="dashboard-grid">
+                    <div class="card">
+                        <div class="card-header"><h2>Data Management</h2></div>
+                        <div class="card-body">
+                            <p class="text-muted" style="margin-bottom: 16px;">All your data is stored locally in your browser. Ensure you backup regularly.</p>
+                            <div class="btn-group">
+                                <button id="btn-export-data" class="btn btn-primary"><i class="fa-solid fa-download"></i> Export JSON Backup</button>
+                                <button id="btn-import-data" class="btn btn-secondary"><i class="fa-solid fa-upload"></i> Import Backup</button>
+                                <input type="file" id="file-import-data" style="display:none" accept=".json">
+                            </div>
+                            <hr style="margin: 24px 0; border: none; border-top: 1px solid var(--border-color);">
+                            <button id="btn-danger-reset" class="btn btn-danger"><i class="fa-solid fa-trash"></i> Delete All Local Data</button>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="card-header"><h2>Preferences</h2></div>
+                        <div class="card-body">
+                            <div class="form-group">
+                                <label>Accent Color</label>
+                                <div class="color-picker" id="accent-color-picker">
+                                    <div class="color-swatch active" style="background: #2383e2" data-color="blue"></div>
+                                    <div class="color-swatch" style="background: #8e24aa" data-color="purple"></div>
+                                    <div class="color-swatch" style="background: #43a047" data-color="green"></div>
+                                    <div class="color-swatch" style="background: #f4511e" data-color="orange"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- Placeholders for remaining views -->
+            <section id="view-projects" class="view"><div class="view-header"><h1>Projects</h1></div><div class="card"><div class="card-body">Project Architecture Interface Loading...</div></div></section>
+            <section id="view-goals" class="view"><div class="view-header"><h1>Goals (OKRs)</h1></div><div class="card"><div class="card-body">Goals Interface Loading...</div></div></section>
+            <section id="view-calendar" class="view"><div class="view-header"><h1>Calendar</h1></div><div class="card"><div class="card-body">Vanilla JS Calendar Engine Loading...</div></div></section>
+            <section id="view-habits" class="view"><div class="view-header"><h1>Habit Tracker</h1></div><div class="card"><div class="card-body">Habit Heatmaps Loading...</div></div></section>
+            <section id="view-finance" class="view"><div class="view-header"><h1>Finance</h1></div><div class="card"><div class="card-body">Finance Ledger Loading...</div></div></section>
+            <section id="view-reading" class="view"><div class="view-header"><h1>Reading Tracker</h1></div><div class="card"><div class="card-body">Library Interface Loading...</div></div></section>
+            <section id="view-knowledge" class="view"><div class="view-header"><h1>Knowledge Vault</h1></div><div class="card"><div class="card-body">Second Brain PARA Structure Loading...</div></div></section>
+            <section id="view-notes" class="view"><div class="view-header"><h1>Notes</h1></div><div class="card"><div class="card-body">Rich Text Editor Loading...</div></div></section>
+            <section id="view-meetings" class="view"><div class="view-header"><h1>Meetings</h1></div><div class="card"><div class="card-body">Meeting CRM Loading...</div></div></section>
+            <section id="view-analytics" class="view"><div class="view-header"><h1>Analytics</h1></div><div class="card"><div class="card-body">KPI Dashboards Loading...</div></div></section>
+        </div>
+    </main>
+
+    <!-- Global UI Elements -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <!-- External Libraries (CDNs as permitted) -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+
+    <!-- Application Logic (ES Modules) -->
+    <script type="module" src="js/main.js"></script>
+</body>
+</html>
