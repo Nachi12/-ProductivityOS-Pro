@@ -1,5 +1,6 @@
 // js/knowledge.js
 import { showToast } from './toast.js';
+import { showFormModal, showConfirmModal } from './modal.js';
 
 export class KnowledgeManager {
     constructor(storage) {
@@ -171,38 +172,37 @@ export class KnowledgeManager {
 
                 // Re-bind delete
                 container.querySelectorAll('.kv-item-del').forEach(btn => {
-                    btn.addEventListener('click', () => {
-                        if (confirm('Delete this entry?')) {
-                            const items = this.getItems().filter(i => i.id !== btn.dataset.id);
-                            this.saveItems(items);
-                            showToast('Entry deleted.');
-                            this.render();
-                        }
+                    btn.addEventListener('click', async () => {
+                        const ok = await showConfirmModal('Delete this entry?', { title: 'Delete Entry', confirmLabel: 'Delete', danger: true });
+                        if (!ok) return;
+                        const items = this.getItems().filter(i => i.id !== btn.dataset.id);
+                        this.saveItems(items);
+                        showToast('Entry deleted.');
+                        this.render();
                     });
                 });
             }
         });
 
         // Add entry
-        document.getElementById('new-kv-btn')?.addEventListener('click', () => {
-            const title = prompt('Entry title:');
-            if (!title) return;
-            const content = prompt('Content / notes:', '') || '';
-            const typeChoice = prompt('Type:\n1. Resource\n2. Area\n3. Project\n4. Archive', '1');
-            const types = { '1': 'resource', '2': 'area', '3': 'project', '4': 'archive' };
-            const type = types[typeChoice] || 'resource';
-            const tagsStr = prompt('Tags (comma separated):', '') || '';
-            const tags = tagsStr.split(',').map(t => t.trim()).filter(t => t);
-
-            const items = this.getItems();
-            items.push({
-                id: 'kv_' + Date.now(),
-                title,
-                content,
-                type,
-                tags,
-                createdAt: new Date().toISOString()
+        document.getElementById('new-kv-btn')?.addEventListener('click', async () => {
+            const result = await showFormModal({
+                title: 'New Knowledge Entry', icon: 'fa-solid fa-brain',
+                submitLabel: 'Add Entry', submitIcon: 'fa-solid fa-check',
+                fields: [
+                    { key: 'title', label: 'Title', type: 'text', placeholder: 'Entry title...', required: true },
+                    { key: 'content', label: 'Content / Notes', type: 'textarea', placeholder: 'Write your notes...' },
+                    { key: 'type', label: 'Category', type: 'select', value: 'resource', options: [
+                        { value: 'resource', label: 'Resource' }, { value: 'area', label: 'Area' },
+                        { value: 'project', label: 'Project' }, { value: 'archive', label: 'Archive' }
+                    ]},
+                    { key: 'tags', label: 'Tags (comma separated)', type: 'text', placeholder: 'e.g. design, research' }
+                ]
             });
+            if (!result) return;
+            const tags = (result.tags || '').split(',').map(t => t.trim()).filter(t => t);
+            const items = this.getItems();
+            items.push({ id: 'kv_' + Date.now(), title: result.title, content: result.content || '', type: result.type || 'resource', tags, createdAt: new Date().toISOString() });
             this.saveItems(items);
             showToast('Knowledge entry added!');
             this.render();
@@ -210,13 +210,13 @@ export class KnowledgeManager {
 
         // Delete
         document.querySelectorAll('#view-knowledge .kv-item-del').forEach(btn => {
-            btn.addEventListener('click', () => {
-                if (confirm('Delete this entry?')) {
-                    const items = this.getItems().filter(i => i.id !== btn.dataset.id);
-                    this.saveItems(items);
-                    showToast('Entry deleted.');
-                    this.render();
-                }
+            btn.addEventListener('click', async () => {
+                const ok = await showConfirmModal('Delete this entry?', { title: 'Delete Entry', confirmLabel: 'Delete', danger: true });
+                if (!ok) return;
+                const items = this.getItems().filter(i => i.id !== btn.dataset.id);
+                this.saveItems(items);
+                showToast('Entry deleted.');
+                this.render();
             });
         });
     }

@@ -1,5 +1,6 @@
 // js/meetings.js
 import { showToast } from './toast.js';
+import { showFormModal, showConfirmModal } from './modal.js';
 
 export class MeetingsManager {
     constructor(storage) {
@@ -185,27 +186,23 @@ export class MeetingsManager {
         });
 
         // New meeting
-        document.getElementById('new-meeting-btn')?.addEventListener('click', () => {
-            const title = prompt('Meeting title:');
-            if (!title) return;
-            const attendees = prompt('Attendees (names):', '') || '';
-            const date = prompt('Date (YYYY-MM-DD):', new Date().toISOString().split('T')[0]) || new Date().toISOString().split('T')[0];
-            const time = prompt('Time (e.g. 14:00):', '10:00') || '10:00';
-            const duration = prompt('Duration (minutes):', '30') || '30';
-
-            const meetings = this.getMeetings();
-            meetings.push({
-                id: 'meet_' + Date.now(),
-                title,
-                attendees,
-                date,
-                time,
-                duration,
-                status: 'upcoming',
-                notes: '',
-                agenda: [],
-                createdAt: new Date().toISOString()
+        document.getElementById('new-meeting-btn')?.addEventListener('click', async () => {
+            const result = await showFormModal({
+                title: 'Schedule Meeting', icon: 'fa-solid fa-users',
+                submitLabel: 'Schedule', submitIcon: 'fa-solid fa-check',
+                fields: [
+                    { key: 'title', label: 'Meeting Title', type: 'text', placeholder: 'e.g. Sprint Planning...', required: true },
+                    { key: 'attendees', label: 'Attendees', type: 'text', placeholder: 'Names...' },
+                    { type: 'row', children: [
+                        { key: 'date', label: 'Date', type: 'date', value: new Date().toISOString().split('T')[0] },
+                        { key: 'time', label: 'Time', type: 'text', placeholder: '10:00', value: '10:00' }
+                    ]},
+                    { key: 'duration', label: 'Duration (minutes)', type: 'number', value: '30', placeholder: '30' }
+                ]
             });
+            if (!result) return;
+            const meetings = this.getMeetings();
+            meetings.push({ id: 'meet_' + Date.now(), title: result.title, attendees: result.attendees || '', date: result.date || new Date().toISOString().split('T')[0], time: result.time || '10:00', duration: result.duration || '30', status: 'upcoming', notes: '', agenda: [], createdAt: new Date().toISOString() });
             this.saveMeetings(meetings);
             showToast('Meeting scheduled!');
             this.render();
@@ -213,63 +210,73 @@ export class MeetingsManager {
 
         // Add notes
         document.querySelectorAll('#view-meetings .meet-notes-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
+            btn.addEventListener('click', async () => {
                 const meetings = this.getMeetings();
                 const meet = meetings.find(m => m.id === btn.dataset.id);
                 if (!meet) return;
-                const notes = prompt('Meeting notes:', meet.notes || '');
-                if (notes !== null) {
-                    meet.notes = notes;
-                    this.saveMeetings(meetings);
-                    showToast('Notes saved!');
-                    this.render();
-                }
+                const result = await showFormModal({
+                    title: 'Meeting Notes', icon: 'fa-solid fa-pencil',
+                    submitLabel: 'Save Notes', submitIcon: 'fa-solid fa-check',
+                    fields: [{ key: 'notes', label: 'Notes', type: 'textarea', value: meet.notes || '', placeholder: 'Write meeting notes...' }]
+                });
+                if (!result) return;
+                meet.notes = result.notes;
+                this.saveMeetings(meetings);
+                showToast('Notes saved!');
+                this.render();
             });
         });
 
         // Add agenda
         document.querySelectorAll('#view-meetings .meet-agenda-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
+            btn.addEventListener('click', async () => {
                 const meetings = this.getMeetings();
                 const meet = meetings.find(m => m.id === btn.dataset.id);
                 if (!meet) return;
-                const item = prompt('Add agenda item:');
-                if (item) {
-                    meet.agenda = meet.agenda || [];
-                    meet.agenda.push(item);
-                    this.saveMeetings(meetings);
-                    showToast('Agenda item added!');
-                    this.render();
-                }
+                const result = await showFormModal({
+                    title: 'Add Agenda Item', icon: 'fa-solid fa-list',
+                    submitLabel: 'Add', submitIcon: 'fa-solid fa-check',
+                    fields: [{ key: 'item', label: 'Agenda Item', type: 'text', placeholder: 'Discussion topic...', required: true }]
+                });
+                if (!result) return;
+                meet.agenda = meet.agenda || [];
+                meet.agenda.push(result.item);
+                this.saveMeetings(meetings);
+                showToast('Agenda item added!');
+                this.render();
             });
         });
 
         // Change status
         document.querySelectorAll('#view-meetings .meet-status-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
+            btn.addEventListener('click', async () => {
                 const meetings = this.getMeetings();
                 const meet = meetings.find(m => m.id === btn.dataset.id);
                 if (!meet) return;
-                const choice = prompt('Status:\n1. Upcoming\n2. Completed\n3. Cancelled', '1');
-                const map = { '1': 'upcoming', '2': 'completed', '3': 'cancelled' };
-                if (map[choice]) {
-                    meet.status = map[choice];
-                    this.saveMeetings(meetings);
-                    showToast('Status updated!');
-                    this.render();
-                }
+                const result = await showFormModal({
+                    title: 'Change Status', icon: 'fa-solid fa-rotate',
+                    submitLabel: 'Update', submitIcon: 'fa-solid fa-check',
+                    fields: [{ key: 'status', label: 'Status', type: 'select', value: meet.status, options: [
+                        { value: 'upcoming', label: 'Upcoming' }, { value: 'completed', label: 'Completed' }, { value: 'cancelled', label: 'Cancelled' }
+                    ]}]
+                });
+                if (!result) return;
+                meet.status = result.status;
+                this.saveMeetings(meetings);
+                showToast('Status updated!');
+                this.render();
             });
         });
 
         // Delete
         document.querySelectorAll('#view-meetings .meet-del-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                if (confirm('Delete this meeting?')) {
-                    const meetings = this.getMeetings().filter(m => m.id !== btn.dataset.id);
-                    this.saveMeetings(meetings);
-                    showToast('Meeting deleted.');
-                    this.render();
-                }
+            btn.addEventListener('click', async () => {
+                const ok = await showConfirmModal('Delete this meeting?', { title: 'Delete Meeting', confirmLabel: 'Delete', danger: true });
+                if (!ok) return;
+                const meetings = this.getMeetings().filter(m => m.id !== btn.dataset.id);
+                this.saveMeetings(meetings);
+                showToast('Meeting deleted.');
+                this.render();
             });
         });
     }

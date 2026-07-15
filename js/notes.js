@@ -1,5 +1,6 @@
 // js/notes.js
 import { showToast } from './toast.js';
+import { showConfirmModal } from './modal.js';
 
 export class NotesManager {
     constructor(storage) {
@@ -200,14 +201,14 @@ export class NotesManager {
         });
 
         // Delete
-        document.getElementById('note-delete-btn')?.addEventListener('click', () => {
-            if (confirm('Delete this note?')) {
-                const notes = this.getNotes().filter(n => n.id !== this.activeNoteId);
-                this.saveNotes(notes);
-                this.activeNoteId = notes.length > 0 ? notes[0].id : null;
-                showToast('Note deleted.');
-                this.render();
-            }
+        document.getElementById('note-delete-btn')?.addEventListener('click', async () => {
+            const ok = await showConfirmModal('Delete this note permanently?', { title: 'Delete Note', confirmLabel: 'Delete', danger: true });
+            if (!ok) return;
+            const notes = this.getNotes().filter(n => n.id !== this.activeNoteId);
+            this.saveNotes(notes);
+            this.activeNoteId = notes.length > 0 ? notes[0].id : null;
+            showToast('Note deleted.');
+            this.render();
         });
 
         // Search

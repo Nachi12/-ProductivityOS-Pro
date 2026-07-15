@@ -1,5 +1,6 @@
 // js/habits.js
 import { showToast } from './toast.js';
+import { showFormModal, showConfirmModal } from './modal.js';
 
 export class HabitsManager {
     constructor(storage) {
@@ -205,20 +206,27 @@ export class HabitsManager {
 
     bindEvents() {
         // New habit
-        document.getElementById('new-habit-btn')?.addEventListener('click', () => {
-            const name = prompt('Habit name:');
-            if (!name) return;
-            const emoji = prompt('Emoji icon:', '✅') || '✅';
-            const colors = ['#2383e2', '#8e24aa', '#43a047', '#f4511e', '#e53935'];
-            const colorIdx = prompt('Pick color (1-5):\n1. Blue\n2. Purple\n3. Green\n4. Orange\n5. Red', '3');
-            const color = colors[Math.min(Math.max(parseInt(colorIdx) - 1 || 2, 0), 4)];
+        document.getElementById('new-habit-btn')?.addEventListener('click', async () => {
+            const result = await showFormModal({
+                title: 'New Habit', icon: 'fa-solid fa-repeat',
+                submitLabel: 'Create Habit', submitIcon: 'fa-solid fa-check',
+                fields: [
+                    { key: 'name', label: 'Habit Name', type: 'text', placeholder: 'e.g. Exercise, Read, Meditate...', required: true },
+                    { key: 'emoji', label: 'Emoji Icon', type: 'text', placeholder: '✅', value: '✅' },
+                    { key: 'color', label: 'Color', type: 'color', value: '#43a047', colors: [
+                        { value: '#2383e2', label: 'Blue' }, { value: '#8e24aa', label: 'Purple' },
+                        { value: '#43a047', label: 'Green' }, { value: '#f4511e', label: 'Orange' }, { value: '#e53935', label: 'Red' }
+                    ]}
+                ]
+            });
+            if (!result) return;
 
             const habits = this.getHabits();
             habits.push({
                 id: 'hab_' + Date.now(),
-                name,
-                emoji,
-                color,
+                name: result.name,
+                emoji: result.emoji || '✅',
+                color: result.color || '#43a047',
                 frequency: 'daily',
                 completions: [],
                 createdAt: this.todayStr()
@@ -251,13 +259,13 @@ export class HabitsManager {
 
         // Delete
         document.querySelectorAll('#view-habits .habit-delete').forEach(btn => {
-            btn.addEventListener('click', () => {
-                if (confirm('Delete this habit?')) {
-                    const habits = this.getHabits().filter(h => h.id !== btn.dataset.id);
-                    this.saveHabits(habits);
-                    showToast('Habit deleted.');
-                    this.render();
-                }
+            btn.addEventListener('click', async () => {
+                const ok = await showConfirmModal('Delete this habit and all its data?', { title: 'Delete Habit', confirmLabel: 'Delete', danger: true });
+                if (!ok) return;
+                const habits = this.getHabits().filter(h => h.id !== btn.dataset.id);
+                this.saveHabits(habits);
+                showToast('Habit deleted.');
+                this.render();
             });
         });
     }

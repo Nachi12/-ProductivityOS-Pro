@@ -1,5 +1,6 @@
 // js/calendar.js
 import { showToast } from './toast.js';
+import { showFormModal, showConfirmModal } from './modal.js';
 
 export class CalendarManager {
     constructor(storage) {
@@ -195,15 +196,22 @@ export class CalendarManager {
         });
 
         // Add event
-        document.getElementById('cal-add-event')?.addEventListener('click', () => {
-            const title = prompt('Event title:');
-            if (!title) return;
-            const time = prompt('Time (e.g. 14:00):', '09:00') || '';
-            const colors = ['#2383e2', '#8e24aa', '#43a047', '#f4511e', '#e53935'];
-            const color = colors[Math.floor(Math.random() * colors.length)];
-
+        document.getElementById('cal-add-event')?.addEventListener('click', async () => {
+            const result = await showFormModal({
+                title: 'New Event', icon: 'fa-solid fa-calendar-plus',
+                submitLabel: 'Add Event', submitIcon: 'fa-solid fa-check',
+                fields: [
+                    { key: 'title', label: 'Event Title', type: 'text', placeholder: 'Meeting, Birthday...', required: true },
+                    { key: 'time', label: 'Time', type: 'text', placeholder: 'e.g. 14:00', value: '09:00' },
+                    { key: 'color', label: 'Color', type: 'color', value: '#2383e2', colors: [
+                        { value: '#2383e2', label: 'Blue' }, { value: '#8e24aa', label: 'Purple' },
+                        { value: '#43a047', label: 'Green' }, { value: '#f4511e', label: 'Orange' }, { value: '#e53935', label: 'Red' }
+                    ]}
+                ]
+            });
+            if (!result) return;
             const events = this.getEvents();
-            events.push({ id: 'ev_' + Date.now(), title, time, date: this.selectedDate, color });
+            events.push({ id: 'ev_' + Date.now(), title: result.title, time: result.time, date: this.selectedDate, color: result.color });
             this.saveEvents(events);
             showToast('Event added!');
             this.render();
@@ -211,14 +219,14 @@ export class CalendarManager {
 
         // Delete
         document.querySelectorAll('#view-calendar .cal-event-del').forEach(btn => {
-            btn.addEventListener('click', () => {
+            btn.addEventListener('click', async () => {
                 const id = btn.dataset.id;
-                if (confirm('Delete this event?')) {
-                    const events = this.getEvents().filter(e => e.id !== id);
-                    this.saveEvents(events);
-                    showToast('Event deleted.');
-                    this.render();
-                }
+                const ok = await showConfirmModal('Delete this event?', { title: 'Delete Event', confirmLabel: 'Delete', danger: true });
+                if (!ok) return;
+                const events = this.getEvents().filter(e => e.id !== id);
+                this.saveEvents(events);
+                showToast('Event deleted.');
+                this.render();
             });
         });
     }

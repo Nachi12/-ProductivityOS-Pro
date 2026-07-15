@@ -1,5 +1,6 @@
 // js/tasks.js
 import { showToast } from './toast.js';
+import { showConfirmModal } from './modal.js';
 
 export class TaskManager {
     constructor(storage) {
@@ -278,14 +279,14 @@ export class TaskManager {
         }
     }
 
-    deleteTask(id) {
-        if(confirm('Delete this task forever?')) {
-            let tasks = this.storage.get('tasks');
-            tasks = tasks.filter(t => t.id !== id);
-            this.storage.set('tasks', tasks);
-            this.renderTable();
-            showToast('Task deleted.', 'success');
-        }
+    async deleteTask(id) {
+        const ok = await showConfirmModal('Delete this task forever?', { title: 'Delete Task', confirmLabel: 'Delete', danger: true });
+        if (!ok) return;
+        let tasks = this.storage.get('tasks');
+        tasks = tasks.filter(t => t.id !== id);
+        this.storage.set('tasks', tasks);
+        this.renderTable();
+        showToast('Task deleted.', 'success');
     }
     
     addTask(title, priority, project, dueDate) {

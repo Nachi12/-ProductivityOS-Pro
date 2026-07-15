@@ -1,5 +1,6 @@
 // js/projects.js
 import { showToast } from './toast.js';
+import { showFormModal, showConfirmModal } from './modal.js';
 
 export class ProjectsManager {
     constructor(storage) {
@@ -154,22 +155,23 @@ export class ProjectsManager {
 
     bindEvents() {
         // New project
-        document.getElementById('new-project-btn')?.addEventListener('click', () => {
-            const name = prompt('Project name:');
-            if (!name) return;
-            const description = prompt('Short description:', '') || '';
-            const colors = ['#2383e2', '#8e24aa', '#43a047', '#f4511e', '#e53935', '#00897b', '#5c6bc0'];
-            const color = colors[Math.floor(Math.random() * colors.length)];
-
-            const projects = this.getProjects();
-            projects.push({
-                id: 'proj_' + Date.now(),
-                name,
-                description,
-                color,
-                status: 'active',
-                createdAt: new Date().toISOString()
+        document.getElementById('new-project-btn')?.addEventListener('click', async () => {
+            const result = await showFormModal({
+                title: 'New Project', icon: 'fa-solid fa-folder-plus',
+                submitLabel: 'Create Project', submitIcon: 'fa-solid fa-check',
+                fields: [
+                    { key: 'name', label: 'Project Name', type: 'text', placeholder: 'e.g. Website Redesign...', required: true },
+                    { key: 'description', label: 'Description', type: 'text', placeholder: 'Short description...' },
+                    { key: 'color', label: 'Color', type: 'color', value: '#2383e2', colors: [
+                        { value: '#2383e2', label: 'Blue' }, { value: '#8e24aa', label: 'Purple' },
+                        { value: '#43a047', label: 'Green' }, { value: '#f4511e', label: 'Orange' },
+                        { value: '#e53935', label: 'Red' }, { value: '#00897b', label: 'Teal' }, { value: '#5c6bc0', label: 'Indigo' }
+                    ]}
+                ]
             });
+            if (!result) return;
+            const projects = this.getProjects();
+            projects.push({ id: 'proj_' + Date.now(), name: result.name, description: result.description || '', color: result.color || '#2383e2', status: 'active', createdAt: new Date().toISOString() });
             this.saveProjects(projects);
             showToast('Project created!');
             this.render();
@@ -177,36 +179,38 @@ export class ProjectsManager {
 
         // Change status
         document.querySelectorAll('#view-projects .proj-status-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
+            btn.addEventListener('click', async () => {
                 const projects = this.getProjects();
                 const proj = projects.find(p => p.id === btn.dataset.id);
                 if (!proj) return;
-                const choice = prompt('Status:\n1. Planning\n2. Active\n3. On Hold\n4. Completed', proj.status === 'planning' ? '1' : proj.status === 'active' ? '2' : proj.status === 'on-hold' ? '3' : '4');
-                const map = { '1': 'planning', '2': 'active', '3': 'on-hold', '4': 'completed' };
-                if (map[choice]) {
-                    proj.status = map[choice];
-                    this.saveProjects(projects);
-                    showToast('Status updated!');
-                    this.render();
-                }
+                const result = await showFormModal({
+                    title: 'Change Status', icon: 'fa-solid fa-rotate',
+                    submitLabel: 'Update', submitIcon: 'fa-solid fa-check',
+                    fields: [{ key: 'status', label: 'Status', type: 'select', value: proj.status, options: [
+                        { value: 'planning', label: 'Planning' }, { value: 'active', label: 'Active' },
+                        { value: 'on-hold', label: 'On Hold' }, { value: 'completed', label: 'Completed' }
+                    ]}]
+                });
+                if (!result) return;
+                proj.status = result.status;
+                this.saveProjects(projects);
+                showToast('Status updated!');
+                this.render();
             });
         });
 
         // Add task to project
         document.querySelectorAll('#view-projects .proj-add-task-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
+            btn.addEventListener('click', async () => {
                 const projName = btn.dataset.name;
-                const title = prompt(`New task for "${projName}":`);
-                if (!title) return;
-                const tasks = this.getTasks();
-                tasks.push({
-                    id: 't' + Date.now(),
-                    title,
-                    priority: 'Medium',
-                    project: projName,
-                    completed: false,
-                    date: new Date().toISOString()
+                const result = await showFormModal({
+                    title: `New Task for "${projName}"`, icon: 'fa-solid fa-plus',
+                    submitLabel: 'Add Task', submitIcon: 'fa-solid fa-check',
+                    fields: [{ key: 'title', label: 'Task Title', type: 'text', placeholder: 'What needs to be done?', required: true }]
                 });
+                if (!result) return;
+                const tasks = this.getTasks();
+                tasks.push({ id: 't' + Date.now(), title: result.title, priority: 'Medium', project: projName, completed: false, date: new Date().toISOString() });
                 this.storage.set('tasks', tasks);
                 showToast('Task added to project!');
                 this.render();
@@ -215,13 +219,13 @@ export class ProjectsManager {
 
         // Delete
         document.querySelectorAll('#view-projects .proj-del-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                if (confirm('Delete this project? Tasks will remain.')) {
-                    const projects = this.getProjects().filter(p => p.id !== btn.dataset.id);
-                    this.saveProjects(projects);
-                    showToast('Project deleted.');
-                    this.render();
-                }
+            btn.addEventListener('click', async () => {
+                const ok = await showConfirmModal('Delete this project? Tasks will remain.', { title: 'Delete Project', confirmLabel: 'Delete', danger: true });
+                if (!ok) return;
+                const projects = this.getProjects().filter(p => p.id !== btn.dataset.id);
+                this.saveProjects(projects);
+                showToast('Project deleted.');
+                this.render();
             });
         });
     }

@@ -1,5 +1,6 @@
 // js/goals.js
 import { showToast } from './toast.js';
+import { showFormModal, showConfirmModal } from './modal.js';
 
 export class GoalsManager {
     constructor(storage) {
@@ -158,22 +159,22 @@ export class GoalsManager {
 
     bindEvents() {
         // New goal
-        document.getElementById('new-goal-btn')?.addEventListener('click', () => {
-            const title = prompt('Goal objective:');
-            if (!title) return;
-            const deadline = prompt('Deadline (YYYY-MM-DD):', new Date(Date.now() + 90 * 86400000).toISOString().split('T')[0]) || '';
-            const colors = ['#2383e2', '#8e24aa', '#43a047', '#f4511e', '#00897b'];
-            const color = colors[Math.floor(Math.random() * colors.length)];
-
-            const goals = this.getGoals();
-            goals.push({
-                id: 'goal_' + Date.now(),
-                title,
-                deadline,
-                color,
-                keyResults: [],
-                createdAt: new Date().toISOString()
+        document.getElementById('new-goal-btn')?.addEventListener('click', async () => {
+            const result = await showFormModal({
+                title: 'New Goal', icon: 'fa-solid fa-bullseye',
+                submitLabel: 'Create Goal', submitIcon: 'fa-solid fa-check',
+                fields: [
+                    { key: 'title', label: 'Objective', type: 'text', placeholder: 'e.g. Launch MVP by Q3...', required: true },
+                    { key: 'deadline', label: 'Deadline', type: 'date', value: new Date(Date.now() + 90 * 86400000).toISOString().split('T')[0] },
+                    { key: 'color', label: 'Color', type: 'color', value: '#2383e2', colors: [
+                        { value: '#2383e2', label: 'Blue' }, { value: '#8e24aa', label: 'Purple' },
+                        { value: '#43a047', label: 'Green' }, { value: '#f4511e', label: 'Orange' }, { value: '#00897b', label: 'Teal' }
+                    ]}
+                ]
             });
+            if (!result) return;
+            const goals = this.getGoals();
+            goals.push({ id: 'goal_' + Date.now(), title: result.title, deadline: result.deadline || '', color: result.color || '#2383e2', keyResults: [], createdAt: new Date().toISOString() });
             this.saveGoals(goals);
             showToast('Goal created!');
             this.render();
@@ -181,14 +182,18 @@ export class GoalsManager {
 
         // Add key result
         document.querySelectorAll('#view-goals .goal-add-kr-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const text = prompt('Key result:');
-                if (!text) return;
+            btn.addEventListener('click', async () => {
+                const result = await showFormModal({
+                    title: 'Add Key Result', icon: 'fa-solid fa-key',
+                    submitLabel: 'Add', submitIcon: 'fa-solid fa-check',
+                    fields: [{ key: 'text', label: 'Key Result', type: 'text', placeholder: 'Measurable outcome...', required: true }]
+                });
+                if (!result) return;
                 const goals = this.getGoals();
                 const goal = goals.find(g => g.id === btn.dataset.id);
                 if (goal) {
                     goal.keyResults = goal.keyResults || [];
-                    goal.keyResults.push({ text, done: false });
+                    goal.keyResults.push({ text: result.text, done: false });
                     this.saveGoals(goals);
                     showToast('Key result added!');
                     this.render();
@@ -227,13 +232,13 @@ export class GoalsManager {
 
         // Delete goal
         document.querySelectorAll('#view-goals .goal-del-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                if (confirm('Delete this goal?')) {
-                    const goals = this.getGoals().filter(g => g.id !== btn.dataset.id);
-                    this.saveGoals(goals);
-                    showToast('Goal deleted.');
-                    this.render();
-                }
+            btn.addEventListener('click', async () => {
+                const ok = await showConfirmModal('Delete this goal and all key results?', { title: 'Delete Goal', confirmLabel: 'Delete', danger: true });
+                if (!ok) return;
+                const goals = this.getGoals().filter(g => g.id !== btn.dataset.id);
+                this.saveGoals(goals);
+                showToast('Goal deleted.');
+                this.render();
             });
         });
     }

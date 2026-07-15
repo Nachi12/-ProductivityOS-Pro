@@ -1,5 +1,6 @@
 // js/reading.js
 import { showToast } from './toast.js';
+import { showFormModal, showConfirmModal } from './modal.js';
 
 export class ReadingManager {
     constructor(storage) {
@@ -189,25 +190,22 @@ export class ReadingManager {
         });
 
         // Add book
-        document.getElementById('new-book-btn')?.addEventListener('click', () => {
-            const title = prompt('Book title:');
-            if (!title) return;
-            const author = prompt('Author:') || 'Unknown';
-            const totalPages = parseInt(prompt('Total pages:', '300')) || 300;
-            const genre = prompt('Genre (e.g. Fiction, Self-Help, Sci-Fi):', 'General') || 'General';
-
-            const books = this.getBooks();
-            books.push({
-                id: 'book_' + Date.now(),
-                title,
-                author,
-                totalPages,
-                currentPage: 0,
-                status: 'to-read',
-                genre,
-                rating: 0,
-                addedAt: new Date().toISOString().split('T')[0]
+        document.getElementById('new-book-btn')?.addEventListener('click', async () => {
+            const result = await showFormModal({
+                title: 'Add Book', icon: 'fa-solid fa-book',
+                submitLabel: 'Add Book', submitIcon: 'fa-solid fa-check',
+                fields: [
+                    { key: 'title', label: 'Book Title', type: 'text', placeholder: 'e.g. Atomic Habits...', required: true },
+                    { key: 'author', label: 'Author', type: 'text', placeholder: 'Author name...' },
+                    { type: 'row', children: [
+                        { key: 'totalPages', label: 'Total Pages', type: 'number', value: '300', placeholder: '300' },
+                        { key: 'genre', label: 'Genre', type: 'text', placeholder: 'e.g. Self-Help', value: 'General' }
+                    ]}
+                ]
             });
+            if (!result) return;
+            const books = this.getBooks();
+            books.push({ id: 'book_' + Date.now(), title: result.title, author: result.author || 'Unknown', totalPages: parseInt(result.totalPages) || 300, currentPage: 0, status: 'to-read', genre: result.genre || 'General', rating: 0, addedAt: new Date().toISOString().split('T')[0] });
             this.saveBooks(books);
             showToast('Book added to library!');
             this.render();
@@ -230,11 +228,17 @@ export class ReadingManager {
 
         // Update progress
         document.querySelectorAll('#view-reading .book-update-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
+            btn.addEventListener('click', async () => {
                 const books = this.getBooks();
                 const book = books.find(b => b.id === btn.dataset.id);
                 if (!book) return;
-                const newPage = parseInt(prompt(`Current page (0-${book.totalPages}):`, book.currentPage));
+                const result = await showFormModal({
+                    title: 'Update Progress', icon: 'fa-solid fa-bookmark',
+                    submitLabel: 'Update', submitIcon: 'fa-solid fa-check',
+                    fields: [{ key: 'page', label: `Current Page (0-${book.totalPages})`, type: 'number', value: String(book.currentPage), min: 0, max: book.totalPages }]
+                });
+                if (!result) return;
+                const newPage = parseInt(result.page);
                 if (isNaN(newPage) || newPage < 0) return;
                 book.currentPage = Math.min(newPage, book.totalPages);
                 if (book.currentPage === book.totalPages && book.status !== 'completed') {
@@ -253,31 +257,35 @@ export class ReadingManager {
 
         // Change status
         document.querySelectorAll('#view-reading .book-status-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
+            btn.addEventListener('click', async () => {
                 const books = this.getBooks();
                 const book = books.find(b => b.id === btn.dataset.id);
                 if (!book) return;
-                const statusChoice = prompt('Status:\n1. To Read\n2. Reading\n3. Completed', book.status === 'to-read' ? '1' : book.status === 'reading' ? '2' : '3');
-                const statuses = { '1': 'to-read', '2': 'reading', '3': 'completed' };
-                if (statuses[statusChoice]) {
-                    book.status = statuses[statusChoice];
-                    if (book.status === 'completed') book.currentPage = book.totalPages;
-                    this.saveBooks(books);
-                    showToast('Status updated!');
-                    this.render();
-                }
+                const result = await showFormModal({
+                    title: 'Change Status', icon: 'fa-solid fa-rotate',
+                    submitLabel: 'Update', submitIcon: 'fa-solid fa-check',
+                    fields: [{ key: 'status', label: 'Status', type: 'select', value: book.status, options: [
+                        { value: 'to-read', label: 'To Read' }, { value: 'reading', label: 'Reading' }, { value: 'completed', label: 'Completed' }
+                    ]}]
+                });
+                if (!result) return;
+                book.status = result.status;
+                if (book.status === 'completed') book.currentPage = book.totalPages;
+                this.saveBooks(books);
+                showToast('Status updated!');
+                this.render();
             });
         });
 
         // Delete
         document.querySelectorAll('#view-reading .book-delete-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                if (confirm('Remove this book?')) {
-                    const books = this.getBooks().filter(b => b.id !== btn.dataset.id);
-                    this.saveBooks(books);
-                    showToast('Book removed.');
-                    this.render();
-                }
+            btn.addEventListener('click', async () => {
+                const ok = await showConfirmModal('Remove this book from your library?', { title: 'Remove Book', confirmLabel: 'Remove', danger: true });
+                if (!ok) return;
+                const books = this.getBooks().filter(b => b.id !== btn.dataset.id);
+                this.saveBooks(books);
+                showToast('Book removed.');
+                this.render();
             });
         });
     }

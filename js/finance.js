@@ -1,5 +1,6 @@
 // js/finance.js
 import { showToast } from './toast.js';
+import { showConfirmModal } from './modal.js';
 
 export class FinanceManager {
     constructor(storage) {
@@ -251,13 +252,13 @@ export class FinanceManager {
 
         // Delete
         document.querySelectorAll('#view-finance .fin-del').forEach(btn => {
-            btn.addEventListener('click', () => {
-                if (confirm('Delete this transaction?')) {
-                    const txns = this.getTransactions().filter(t => t.id !== btn.dataset.id);
-                    this.saveTransactions(txns);
-                    showToast('Transaction deleted.');
-                    this.render();
-                }
+            btn.addEventListener('click', async () => {
+                const ok = await showConfirmModal('Delete this transaction?', { title: 'Delete Transaction', confirmLabel: 'Delete', danger: true });
+                if (!ok) return;
+                const txns = this.getTransactions().filter(t => t.id !== btn.dataset.id);
+                this.saveTransactions(txns);
+                showToast('Transaction deleted.');
+                this.render();
             });
         });
     }

@@ -69,8 +69,56 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Sidebar toggler mobile
+    // Sidebar toggler desktop
     document.getElementById('sidebar-toggle').addEventListener('click', () => {
         document.getElementById('sidebar').classList.toggle('collapsed');
     });
+
+    // Mobile hamburger menu
+    const mobileToggle = document.getElementById('mobile-menu-toggle');
+    const sidebar = document.getElementById('sidebar');
+
+    function openMobileSidebar() {
+        sidebar.classList.add('collapsed'); // collapsed = visible on mobile
+        document.body.classList.add('sidebar-open');
+    }
+    function closeMobileSidebar() {
+        sidebar.classList.remove('collapsed');
+        document.body.classList.remove('sidebar-open');
+    }
+
+    if (mobileToggle) {
+        mobileToggle.addEventListener('click', () => {
+            if (sidebar.classList.contains('collapsed')) {
+                closeMobileSidebar();
+            } else {
+                openMobileSidebar();
+            }
+        });
+    }
+
+    // Close sidebar on overlay click (body::after acts as overlay)
+    document.body.addEventListener('click', (e) => {
+        if (document.body.classList.contains('sidebar-open') && e.target === document.body) {
+            closeMobileSidebar();
+        }
+    });
+
+    // Close sidebar when nav item is clicked (mobile)
+    document.querySelectorAll('.nav-item').forEach(item => {
+        item.addEventListener('click', () => {
+            if (window.innerWidth <= 768) {
+                closeMobileSidebar();
+            }
+        });
+    });
+
+    // Show/hide mobile toggle based on screen size
+    function handleResize() {
+        if (mobileToggle) {
+            mobileToggle.style.display = window.innerWidth <= 768 ? 'flex' : 'none';
+        }
+    }
+    handleResize();
+    window.addEventListener('resize', handleResize);
 });

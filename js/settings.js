@@ -1,5 +1,6 @@
 // js/settings.js
 import { showToast } from './toast.js';
+import { showConfirmModal } from './modal.js';
 
 export class SettingsManager {
     constructor(storage, themeManager) {
@@ -46,12 +47,12 @@ export class SettingsManager {
         });
 
         // Reset Data
-        document.getElementById('btn-danger-reset').addEventListener('click', () => {
-            if(confirm('WARNING: This will permanently delete ALL data stored locally. Are you absolute sure?')) {
-                this.storage.reset();
-                showToast('All data erased. Reloading...', 'error');
-                setTimeout(() => window.location.reload(), 1500);
-            }
+        document.getElementById('btn-danger-reset').addEventListener('click', async () => {
+            const ok = await showConfirmModal('This will permanently delete ALL data stored locally. This action cannot be undone.', { title: 'Reset All Data', confirmLabel: 'Erase Everything', danger: true });
+            if (!ok) return;
+            this.storage.reset();
+            showToast('All data erased. Reloading...', 'error');
+            setTimeout(() => window.location.reload(), 1500);
         });
 
         // Accent Colors
