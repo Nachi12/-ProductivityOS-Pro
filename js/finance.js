@@ -106,10 +106,11 @@ export class FinanceManager {
             .fin-del:hover { color: var(--clr-red); }
             .fin-amount.income { color: var(--clr-green); font-weight: 600; }
             .fin-amount.expense { color: var(--clr-red); font-weight: 600; }
-            .person-tag { font-size: 0.75rem; background: var(--bg-hover); padding: 2px 6px; border-radius: 4px; color: var(--text-primary); margin-left: 8px; font-weight: 700; border: 1px solid var(--border-color); }
+            .person-tag { font-size: 0.75rem; background: var(--bg-hover); padding: 2px 6px; border-radius: 4px; color: var(--text-primary); margin-left: 8px; font-weight: 700; border: 1px solid var(--border-color); display: inline-block; white-space: nowrap; margin-bottom: 2px; }
             .interest-tag { background: rgba(244,81,30,0.1); color: var(--clr-orange); }
-            .table-responsive { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+            .table-responsive { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 8px; }
             .data-table { width: 100%; min-width: 600px; border-collapse: collapse; }
+            .data-table th, .data-table td { white-space: nowrap; }
             .fin-panels-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--spacing-4); margin-bottom: var(--spacing-4); }
             
             @media (max-width: 900px) { 
