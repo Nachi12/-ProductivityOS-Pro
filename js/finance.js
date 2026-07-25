@@ -7,7 +7,7 @@ export class FinanceManager {
         this.storage = storage;
         this.stylesInjected = false;
         this.currentPersonFilter = 'All'; // 'All' or specific person
-        this.currentType = 'expense';
+        this.currentEntryType = 'expense'; // 'expense', 'income', or 'loan'
     }
 
     init() {
@@ -17,17 +17,26 @@ export class FinanceManager {
 
     getTransactions() {
         let txns = this.storage.get('transactions') || [];
-        // Legacy migration: ensure all txns have a person
         return txns.map(t => ({ ...t, person: t.person || 'Main' }));
+    }
+
+    getLoans() {
+        let loans = this.storage.get('loans') || [];
+        return loans.map(l => ({ ...l, person: l.person || 'Main' }));
     }
 
     saveTransactions(txns) {
         this.storage.set('transactions', txns);
     }
 
+    saveLoans(loans) {
+        this.storage.set('loans', loans);
+    }
+
     getPersons() {
         const txns = this.getTransactions();
-        const persons = new Set(txns.map(t => t.person));
+        const loans = this.getLoans();
+        const persons = new Set([...txns.map(t => t.person), ...loans.map(l => l.person)]);
         if (persons.size === 0) persons.add('Main');
         return Array.from(persons).sort();
     }
@@ -41,6 +50,14 @@ export class FinanceManager {
         const style = document.createElement('style');
         style.id = 'finance-styles';
         style.textContent = `
+            .fin-container { display: grid; grid-template-columns: 240px 1fr; gap: var(--spacing-6); height: 100%; align-items: start; }
+            .fin-sidebar { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: var(--spacing-4); }
+            .fin-sidebar h3 { font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: var(--spacing-3); font-weight: 600; }
+            .fin-person-btn { display: flex; align-items: center; gap: var(--spacing-3); width: 100%; padding: var(--spacing-2) var(--spacing-3); background: none; border: none; text-align: left; color: var(--text-secondary); border-radius: var(--radius-sm); cursor: pointer; transition: all var(--transition-fast); margin-bottom: var(--spacing-1); font-size: 0.95rem; font-weight: 500; }
+            .fin-person-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
+            .fin-person-btn.active { background: var(--accent-light); color: var(--accent-color); font-weight: 600; }
+            .fin-person-btn i { width: 20px; text-align: center; }
+            
             .fin-kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--spacing-4); margin-bottom: var(--spacing-4); }
             .fin-kpi { display: flex; align-items: center; gap: var(--spacing-3); }
             .fin-kpi-icon { width: 48px; height: 48px; border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center; font-size: 1.2rem; }
@@ -53,23 +70,37 @@ export class FinanceManager {
             .fin-kpi-data .value.positive { color: var(--clr-green); }
             .fin-kpi-data .value.negative { color: var(--clr-red); }
             .fin-kpi-data .value.warning { color: var(--clr-orange); }
-            .fin-layout { display: grid; grid-template-columns: 1fr 360px; gap: var(--spacing-4); }
+            
             .fin-add-form { display: grid; grid-template-columns: 1fr 1fr; gap: var(--spacing-3); margin-bottom: var(--spacing-3); }
             .fin-form-input { padding: 10px 14px; background: var(--bg-input); border: 1px solid var(--border-color); border-radius: var(--radius-sm); color: var(--text-primary); font-size: 0.9rem; font-family: var(--font-sans); width: 100%; box-sizing: border-box; }
             .fin-form-input:focus { border-color: var(--accent-color); outline: none; }
-            .fin-type-toggle { display: flex; gap: var(--spacing-2); }
-            .fin-type-btn { flex: 1; padding: 10px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); text-align: center; cursor: pointer; font-weight: 500; font-size: 0.9rem; transition: all var(--transition-fast); background: var(--bg-input); color: var(--text-secondary); }
-            .fin-type-btn.active-income { background: rgba(67,160,71,0.1); border-color: var(--clr-green); color: var(--clr-green); }
-            .fin-type-btn.active-expense { background: rgba(229,57,53,0.1); border-color: var(--clr-red); color: var(--clr-red); }
+            
+            .fin-type-toggle { display: flex; gap: var(--spacing-2); margin-bottom: var(--spacing-4); background: var(--bg-input); padding: 4px; border-radius: var(--radius-sm); }
+            .fin-type-btn { flex: 1; padding: 10px; border: none; border-radius: var(--radius-sm); text-align: center; cursor: pointer; font-weight: 500; font-size: 0.9rem; transition: all var(--transition-fast); background: transparent; color: var(--text-secondary); }
+            .fin-type-btn.active { background: var(--bg-card); color: var(--text-primary); box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+            
             .fin-badge { padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; }
             .fin-badge.income { background: rgba(67,160,71,0.1); color: var(--clr-green); }
             .fin-badge.expense { background: rgba(229,57,53,0.1); color: var(--clr-red); }
+            .fin-badge.loan { background: rgba(244,81,30,0.1); color: var(--clr-orange); }
+            
+            .loan-card { background: var(--bg-hover); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: var(--spacing-3); margin-bottom: var(--spacing-3); }
+            .loan-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--spacing-2); }
+            .loan-title { font-weight: 600; font-size: 1.1rem; color: var(--text-primary); }
+            .loan-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--spacing-3); margin-top: var(--spacing-2); }
+            .loan-stat { background: var(--bg-card); padding: var(--spacing-2); border-radius: var(--radius-sm); border: 1px solid var(--border-light); }
+            .loan-stat span { display: block; font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; margin-bottom: 2px; }
+            .loan-stat strong { font-size: 0.95rem; color: var(--text-primary); }
+            .loan-progress { height: 6px; background: var(--bg-input); border-radius: 3px; margin-top: var(--spacing-3); overflow: hidden; }
+            .loan-progress-fill { height: 100%; background: var(--clr-green); border-radius: 3px; }
+            
             .cat-bar-wrap { margin-bottom: var(--spacing-3); }
             .cat-bar-header { display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 6px; }
             .cat-bar-header .cat-name { font-weight: 500; color: var(--text-primary); }
             .cat-bar-header .cat-val { color: var(--text-muted); }
             .cat-bar { height: 8px; background: var(--bg-hover); border-radius: 4px; overflow: hidden; }
             .cat-bar-fill { height: 100%; border-radius: 4px; transition: width 0.5s ease; }
+            
             .fin-empty { text-align: center; padding: var(--spacing-5); color: var(--text-muted); }
             .fin-del { background: none; border: none; color: var(--text-muted); cursor: pointer; transition: color var(--transition-fast); }
             .fin-del:hover { color: var(--clr-red); }
@@ -77,7 +108,15 @@ export class FinanceManager {
             .fin-amount.expense { color: var(--clr-red); font-weight: 600; }
             .person-tag { font-size: 0.7rem; background: var(--bg-hover); padding: 2px 6px; border-radius: 4px; color: var(--text-muted); margin-left: 8px; font-weight: 500; }
             .interest-tag { background: rgba(244,81,30,0.1); color: var(--clr-orange); }
-            @media (max-width: 768px) { .fin-layout { grid-template-columns: 1fr; } .fin-add-form { grid-template-columns: 1fr; } }
+            
+            @media (max-width: 900px) { 
+                .fin-container { grid-template-columns: 1fr; }
+                .loan-stats { grid-template-columns: 1fr 1fr; }
+            }
+            @media (max-width: 600px) {
+                .fin-add-form { grid-template-columns: 1fr; }
+                .loan-stats { grid-template-columns: 1fr; }
+            }
         `;
         document.head.appendChild(style);
         this.stylesInjected = true;
@@ -88,28 +127,35 @@ export class FinanceManager {
         if (!container) return;
 
         const allTxns = this.getTransactions();
+        const allLoans = this.getLoans();
+        const persons = this.getPersons();
         
-        // Filter by selected person if not 'All'
         let txns = allTxns;
+        let loans = allLoans;
+        
         if (this.currentPersonFilter !== 'All') {
             txns = allTxns.filter(t => t.person === this.currentPersonFilter);
+            loans = allLoans.filter(l => l.person === this.currentPersonFilter);
         }
 
         const income = txns.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
         const expenses = txns.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
         const balance = income - expenses;
+        const totalDebt = loans.reduce((s, l) => s + l.amountLeftToPay, 0);
         const totalInterest = txns.reduce((s, t) => s + (parseFloat(t.interest) || 0), 0);
 
-        // Breakdown logic (Split by Income and Expense to see Salary vs EMI vs Food)
+        // Categories Visualization
         const categories = {};
         const catColors = {
-            'Food': '#f4511e', 'Transport': '#2383e2', 'Entertainment': '#8e24aa',
-            'Bills': '#e53935', 'Salary': '#43a047', 'Freelance': '#00897b',
-            'Shopping': '#ff7043', 'Health': '#26a69a', 'Loan': '#fbc02d', 
-            'EMI': '#d32f2f', 'Credit Card': '#ab47bc', 'Other': '#78909c'
+            'Rent': '#e53935', 'Food': '#f4511e', 'Transport': '#2383e2', 'Entertainment': '#8e24aa',
+            'Bills': '#fb8c00', 'Salary': '#43a047', 'Freelance': '#00897b',
+            'Shopping': '#ff7043', 'Health': '#26a69a', 'EMI': '#d32f2f', 
+            'Credit Card': '#ab47bc', 'Other': '#78909c'
         };
         txns.forEach(t => {
-            categories[t.category] = (categories[t.category] || 0) + (t.type === 'expense' ? t.amount : 0); // show expense breakdown mainly
+            if (t.type === 'expense') {
+                categories[t.category] = (categories[t.category] || 0) + t.amount;
+            }
         });
         
         let catHTML = '';
@@ -130,14 +176,41 @@ export class FinanceManager {
                 `;
             }).join('');
         } else {
-            catHTML = '<div class="fin-empty">No expenses yet</div>';
+            catHTML = '<div class="fin-empty">No expenses to visualize.</div>';
+        }
+
+        // Active Loans HTML
+        let loansHTML = '';
+        if (loans.length === 0) {
+            loansHTML = '<div class="fin-empty">No active loans.</div>';
+        } else {
+            loansHTML = loans.map(l => {
+                const paid = l.amountSanctioned - l.amountLeftToPay;
+                const pct = Math.min(100, Math.max(0, (paid / l.amountSanctioned) * 100));
+                return `
+                    <div class="loan-card">
+                        <div class="loan-header">
+                            <span class="loan-title"><i class="fa-solid fa-building-columns" style="color:var(--clr-orange); margin-right:8px;"></i>${l.title} ${this.currentPersonFilter === 'All' ? `<span class="person-tag"><i class="fa-solid fa-user"></i> ${l.person}</span>` : ''}</span>
+                            <button class="fin-del-loan btn btn-secondary" data-id="${l.id}" style="padding:4px 8px; font-size:0.8rem;"><i class="fa-solid fa-check"></i> Close Loan</button>
+                        </div>
+                        <div class="loan-stats">
+                            <div class="loan-stat"><span>Sanctioned</span><strong>${this.formatCurrency(l.amountSanctioned)}</strong></div>
+                            <div class="loan-stat"><span>EMI / Mo</span><strong>${this.formatCurrency(l.emiPerMonth)}</strong></div>
+                            <div class="loan-stat"><span>Interest Rate</span><strong>${l.interestRate}%</strong></div>
+                            <div class="loan-stat"><span>Left to Pay</span><strong style="color:var(--clr-red)">${this.formatCurrency(l.amountLeftToPay)}</strong></div>
+                        </div>
+                        <div class="loan-progress"><div class="loan-progress-fill" style="width: ${pct}%"></div></div>
+                        <div style="font-size:0.75rem; color:var(--text-muted); text-align:right; margin-top:4px;">${pct.toFixed(1)}% Repaid</div>
+                    </div>
+                `;
+            }).join('');
         }
 
         // Transaction table
         const sorted = [...txns].sort((a, b) => new Date(b.date) - new Date(a.date));
         let tableHTML = '';
         if (sorted.length === 0) {
-            tableHTML = '<div class="fin-empty"><i class="fa-solid fa-receipt" style="font-size:1.5rem;margin-bottom:8px;display:block"></i>No transactions yet. Add one above!</div>';
+            tableHTML = '<div class="fin-empty">No transactions logged yet.</div>';
         } else {
             const renderRows = (groupTxns, title) => {
                 if (groupTxns.length === 0) return '';
@@ -180,222 +253,340 @@ export class FinanceManager {
             `;
         }
 
-        const persons = this.getPersons();
-        const personFilterOptions = ['All', ...persons].map(p => 
-            `<option value="${p}" ${p === this.currentPersonFilter ? 'selected' : ''}>${p}</option>`
-        ).join('');
-        
-        const datalistOptions = persons.map(p => `<option value="${p}">`).join('');
+        // Form Fields HTML (Dynamic based on entry type)
+        let formHTML = '';
+        const loanOptionsHTML = loans.length > 0 
+            ? `<optgroup label="Active Loans">${loans.map(l => `<option value="${l.id}">${l.title}</option>`).join('')}</optgroup>`
+            : '';
+
+        if (this.currentEntryType === 'loan') {
+            formHTML = `
+                <input class="fin-form-input" id="fin-title" placeholder="Loan Title (e.g. Home Loan)" type="text">
+                <input class="fin-form-input" id="fin-sanctioned" placeholder="Amount Sanctioned (₹)" type="number" min="0" step="0.01">
+                <input class="fin-form-input" id="fin-paid-already" placeholder="Amount Already Paid (₹) (Optional)" type="number" min="0" step="0.01">
+                <input class="fin-form-input" id="fin-emi" placeholder="EMI per month (₹)" type="number" min="0" step="0.01">
+                <input class="fin-form-input" id="fin-rate" placeholder="Interest Rate (%)" type="number" min="0" step="0.1">
+            `;
+        } else {
+            formHTML = `
+                <input class="fin-form-input" id="fin-title" placeholder="Title (e.g. June Salary, Rent)" type="text">
+                <input class="fin-form-input" id="fin-amount" placeholder="Total Amount (₹)" type="number" min="0" step="0.01">
+                
+                <select class="fin-form-input" id="fin-category">
+                    ${this.currentEntryType === 'income' ? `
+                        <option value="Salary">💰 Salary (Per Month)</option>
+                        <option value="Freelance">💻 Freelance</option>
+                        <option value="Other">📦 Other Income</option>
+                    ` : `
+                        <option value="Rent">🏠 Rent</option>
+                        <option value="EMI">💳 EMI / Loan Payment</option>
+                        <option value="Credit Card">💳 Credit Card Bill</option>
+                        <option value="Food">🍔 Food</option>
+                        <option value="Transport">🚗 Transport</option>
+                        <option value="Entertainment">🎬 Entertainment</option>
+                        <option value="Bills">📄 Bills</option>
+                        <option value="Shopping">🛍️ Shopping</option>
+                        <option value="Health">🏥 Health</option>
+                        <option value="Other">📦 Other</option>
+                    `}
+                </select>
+                
+                ${this.currentEntryType === 'expense' ? `
+                    <select class="fin-form-input" id="fin-linked-loan" style="display: none;">
+                        <option value="">-- Select Linked Loan (Optional) --</option>
+                        ${loanOptionsHTML}
+                    </select>
+                    <input class="fin-form-input" id="fin-interest" placeholder="Interest Part (₹)" type="number" min="0" step="0.01" style="display: none;">
+                ` : ''}
+            `;
+        }
+
+        const personDatalist = persons.map(p => `<option value="${p}">`).join('');
 
         container.innerHTML = `
-            <div class="view-header" style="flex-direction: row; justify-content: space-between; align-items: center;">
+            <div class="view-header">
                 <div>
                     <h1>Finance Tracker</h1>
-                    <p class="subtitle text-muted">Audit household salaries, EMIs, expenses and interest</p>
-                </div>
-                <div class="header-actions">
-                    <select id="fin-person-filter" class="fin-form-input" style="width: auto; min-width: 150px;">
-                        ${personFilterOptions}
-                    </select>
+                    <p class="subtitle text-muted">Audit household salaries, loans, rent, and expenses</p>
                 </div>
             </div>
 
-            <div class="fin-kpi-grid">
-                <div class="card"><div class="card-body"><div class="fin-kpi">
-                    <div class="fin-kpi-icon green"><i class="fa-solid fa-arrow-trend-up"></i></div>
-                    <div class="fin-kpi-data"><h4>${this.currentPersonFilter} Income</h4><div class="value positive">${this.formatCurrency(income)}</div></div>
-                </div></div></div>
-                <div class="card"><div class="card-body"><div class="fin-kpi">
-                    <div class="fin-kpi-icon red"><i class="fa-solid fa-arrow-trend-down"></i></div>
-                    <div class="fin-kpi-data"><h4>${this.currentPersonFilter} Expenses</h4><div class="value negative">${this.formatCurrency(expenses)}</div></div>
-                </div></div></div>
-                <div class="card"><div class="card-body"><div class="fin-kpi">
-                    <div class="fin-kpi-icon blue"><i class="fa-solid fa-wallet"></i></div>
-                    <div class="fin-kpi-data"><h4>${this.currentPersonFilter} Net Balance</h4><div class="value ${balance >= 0 ? 'positive' : 'negative'}">${balance >= 0 ? '+' : '-'}${this.formatCurrency(balance)}</div></div>
-                </div></div></div>
-                <div class="card"><div class="card-body"><div class="fin-kpi">
-                    <div class="fin-kpi-icon orange"><i class="fa-solid fa-percent"></i></div>
-                    <div class="fin-kpi-data"><h4>Loan Interest Paid</h4><div class="value warning">${this.formatCurrency(totalInterest)}</div></div>
-                </div></div></div>
-            </div>
+            <div class="fin-container">
+                <!-- Left Sidebar -->
+                <div class="fin-sidebar">
+                    <h3>Household Members</h3>
+                    <div class="fin-people-list">
+                        <button class="fin-person-btn ${this.currentPersonFilter === 'All' ? 'active' : ''}" data-person="All"><i class="fa-solid fa-users"></i> All Members</button>
+                        ${persons.map(p => `
+                            <button class="fin-person-btn ${this.currentPersonFilter === p ? 'active' : ''}" data-person="${p}"><i class="fa-solid fa-user"></i> ${p}</button>
+                        `).join('')}
+                    </div>
+                </div>
 
-            <div class="fin-layout">
-                <div>
-                    <div class="card" style="margin-bottom: var(--spacing-4);">
-                        <div class="card-header"><h2><i class="fa-solid fa-plus-circle"></i> Add Transaction</h2></div>
-                        <div class="card-body">
-                            <div class="fin-type-toggle" style="margin-bottom: var(--spacing-3);">
-                                <div class="fin-type-btn" id="fin-type-expense" data-type="expense"><i class="fa-solid fa-minus"></i> Expense / EMI</div>
-                                <div class="fin-type-btn" id="fin-type-income" data-type="income"><i class="fa-solid fa-plus"></i> Income / Salary</div>
-                            </div>
-                            <div class="fin-add-form">
-                                <input class="fin-form-input" id="fin-title" placeholder="Title (e.g. June Salary, Car EMI)" type="text">
-                                <input class="fin-form-input" id="fin-amount" placeholder="Total Amount" type="number" min="0" step="0.01">
+                <!-- Main Content -->
+                <div class="fin-main">
+                    <div class="fin-kpi-grid">
+                        <div class="card"><div class="card-body"><div class="fin-kpi">
+                            <div class="fin-kpi-icon green"><i class="fa-solid fa-arrow-trend-up"></i></div>
+                            <div class="fin-kpi-data"><h4>${this.currentPersonFilter} Income</h4><div class="value positive">${this.formatCurrency(income)}</div></div>
+                        </div></div></div>
+                        <div class="card"><div class="card-body"><div class="fin-kpi">
+                            <div class="fin-kpi-icon red"><i class="fa-solid fa-arrow-trend-down"></i></div>
+                            <div class="fin-kpi-data"><h4>${this.currentPersonFilter} Expenses</h4><div class="value negative">${this.formatCurrency(expenses)}</div></div>
+                        </div></div></div>
+                        <div class="card"><div class="card-body"><div class="fin-kpi">
+                            <div class="fin-kpi-icon blue"><i class="fa-solid fa-wallet"></i></div>
+                            <div class="fin-kpi-data"><h4>${this.currentPersonFilter} Balance</h4><div class="value ${balance >= 0 ? 'positive' : 'negative'}">${balance >= 0 ? '+' : '-'}${this.formatCurrency(balance)}</div></div>
+                        </div></div></div>
+                        <div class="card"><div class="card-body"><div class="fin-kpi">
+                            <div class="fin-kpi-icon orange"><i class="fa-solid fa-building-columns"></i></div>
+                            <div class="fin-kpi-data"><h4>Total Debt / Loans</h4><div class="value warning">${this.formatCurrency(totalDebt)}</div></div>
+                        </div></div></div>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--spacing-4); margin-bottom: var(--spacing-4);">
+                        <div class="card">
+                            <div class="card-header"><h2><i class="fa-solid fa-plus-circle"></i> Add Entry</h2></div>
+                            <div class="card-body">
+                                <div class="fin-type-toggle">
+                                    <button class="fin-type-btn ${this.currentEntryType === 'expense' ? 'active' : ''}" data-type="expense">Expense</button>
+                                    <button class="fin-type-btn ${this.currentEntryType === 'income' ? 'active' : ''}" data-type="income">Income</button>
+                                    <button class="fin-type-btn ${this.currentEntryType === 'loan' ? 'active' : ''}" data-type="loan">New Loan</button>
+                                </div>
                                 
-                                <select class="fin-form-input" id="fin-category">
-                                    <optgroup label="Income Sources">
-                                        <option value="Salary">💰 Salary</option>
-                                        <option value="Freelance">💻 Freelance</option>
-                                        <option value="Loan">🏦 Loan (Received)</option>
-                                    </optgroup>
-                                    <optgroup label="Expenses & Repayments">
-                                        <option value="EMI" selected>💳 EMI / Loan Payment</option>
-                                        <option value="Credit Card">💳 Credit Card Bill</option>
-                                        <option value="Food">🍔 Food</option>
-                                        <option value="Transport">🚗 Transport</option>
-                                        <option value="Entertainment">🎬 Entertainment</option>
-                                        <option value="Bills">📄 Bills</option>
-                                        <option value="Shopping">🛍️ Shopping</option>
-                                        <option value="Health">🏥 Health</option>
-                                        <option value="Other">📦 Other</option>
-                                    </optgroup>
-                                </select>
-                                
-                                <input class="fin-form-input" id="fin-interest" placeholder="Interest Part (%)" type="number" min="0" step="0.1" style="display: none;">
-                                
-                                <input class="fin-form-input" id="fin-person" list="fin-persons" placeholder="Person (e.g. John)" value="${this.currentPersonFilter === 'All' ? 'Main' : this.currentPersonFilter}">
-                                <datalist id="fin-persons">
-                                    ${datalistOptions}
-                                </datalist>
-                                
-                                <input class="fin-form-input" id="fin-date" type="date" value="${new Date().toISOString().split('T')[0]}" style="grid-column: 1 / -1;">
-                                <button class="btn btn-primary" id="fin-add-btn" style="grid-column: 1 / -1; justify-content: center;"><i class="fa-solid fa-plus"></i> Add Transaction</button>
+                                <div class="fin-add-form">
+                                    ${formHTML}
+                                    
+                                    <input class="fin-form-input" id="fin-person" list="fin-persons" placeholder="Person (e.g. John)" value="${this.currentPersonFilter === 'All' ? 'Main' : this.currentPersonFilter}">
+                                    <datalist id="fin-persons">${personDatalist}</datalist>
+                                    
+                                    <input class="fin-form-input" id="fin-date" type="date" value="${new Date().toISOString().split('T')[0]}" style="grid-column: 1 / -1;">
+                                    <button class="btn btn-primary" id="fin-add-btn" style="grid-column: 1 / -1; justify-content: center;"><i class="fa-solid fa-check"></i> Save Entry</button>
+                                </div>
                             </div>
                         </div>
+                        
+                        <div class="card">
+                            <div class="card-header"><h2><i class="fa-solid fa-chart-pie"></i> ${this.currentPersonFilter} Expenses</h2></div>
+                            <div class="card-body">${catHTML}</div>
+                        </div>
                     </div>
+
+                    ${loans.length > 0 ? `
+                        <div class="card" style="margin-bottom: var(--spacing-4);">
+                            <div class="card-header"><h2><i class="fa-solid fa-piggy-bank"></i> Active Loans</h2></div>
+                            <div class="card-body">${loansHTML}</div>
+                        </div>
+                    ` : ''}
+
                     <div class="card">
-                        <div class="card-header"><h2><i class="fa-solid fa-list"></i> Transactions Audit Log</h2></div>
+                        <div class="card-header"><h2><i class="fa-solid fa-list"></i> Transactions Log</h2></div>
                         <div class="card-body">${tableHTML}</div>
                     </div>
-                </div>
-                <div class="card" style="align-self: start;">
-                    <div class="card-header"><h2><i class="fa-solid fa-chart-pie"></i> ${this.currentPersonFilter} Expenses</h2></div>
-                    <div class="card-body">${catHTML}</div>
                 </div>
             </div>
         `;
 
-        // Ensure correct toggle visually on render
-        this.updateTypeToggle(this.currentType);
-        
-        // Show interest field if EMI is selected by default
-        const catSelect = document.getElementById('fin-category');
-        const intInput = document.getElementById('fin-interest');
-        if(catSelect && intInput && catSelect.value === 'EMI') {
-            intInput.style.display = 'block';
-        }
-
         this.bindEvents();
+        this.updateFormDynamicFields();
     }
 
-    updateTypeToggle(type) {
-        this.currentType = type;
-        const expBtn = document.getElementById('fin-type-expense');
-        const incBtn = document.getElementById('fin-type-income');
-        if (expBtn && incBtn) {
-            if (type === 'expense') {
-                expBtn.className = 'fin-type-btn active-expense';
-                incBtn.className = 'fin-type-btn';
+    updateFormDynamicFields() {
+        if (this.currentEntryType !== 'expense') return;
+        const catSelect = document.getElementById('fin-category');
+        const intInput = document.getElementById('fin-interest');
+        const loanSelect = document.getElementById('fin-linked-loan');
+        
+        if (!catSelect) return;
+        
+        const updateVisibility = () => {
+            const val = catSelect.value;
+            if (val === 'EMI' || val === 'Credit Card') {
+                intInput.style.display = 'block';
+                if (val === 'EMI') {
+                    loanSelect.style.display = 'block';
+                } else {
+                    loanSelect.style.display = 'none';
+                    loanSelect.value = '';
+                }
             } else {
-                incBtn.className = 'fin-type-btn active-income';
-                expBtn.className = 'fin-type-btn';
+                intInput.style.display = 'none';
+                loanSelect.style.display = 'none';
+                intInput.value = '';
+                loanSelect.value = '';
             }
-        }
+        };
+        
+        catSelect.addEventListener('change', updateVisibility);
+        updateVisibility();
     }
 
     bindEvents() {
-        // Filter change
-        const filterSelect = document.getElementById('fin-person-filter');
-        filterSelect?.addEventListener('change', (e) => {
-            this.currentPersonFilter = e.target.value;
-            this.render();
+        // Sidebar Person Selection
+        document.querySelectorAll('.fin-person-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                this.currentPersonFilter = e.currentTarget.dataset.person;
+                this.render();
+            });
         });
 
         // Type toggle
-        document.getElementById('fin-type-expense')?.addEventListener('click', () => this.updateTypeToggle('expense'));
-        document.getElementById('fin-type-income')?.addEventListener('click', () => this.updateTypeToggle('income'));
-
-        // Category change logic for Interest field
-        const catSelect = document.getElementById('fin-category');
-        const intInput = document.getElementById('fin-interest');
-        catSelect?.addEventListener('change', (e) => {
-            if (e.target.value === 'EMI') {
-                intInput.style.display = 'block';
-            } else {
-                intInput.style.display = 'none';
-                intInput.value = ''; // clear
-            }
+        document.querySelectorAll('.fin-type-toggle .fin-type-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                this.currentEntryType = e.currentTarget.dataset.type;
+                this.render(); // Re-render to show correct form fields
+            });
         });
 
         // Auto-categorize based on title
         const titleInput = document.getElementById('fin-title');
         titleInput?.addEventListener('input', (e) => {
             const val = e.target.value.toLowerCase();
-            if(val.includes('salary')) { catSelect.value = 'Salary'; this.updateTypeToggle('income'); }
-            else if(val.includes('loan') && !val.includes('emi') && !val.includes('pay')) { catSelect.value = 'Loan'; this.updateTypeToggle('income'); }
-            else if(val.includes('emi') || val.includes('repay')) { catSelect.value = 'EMI'; this.updateTypeToggle('expense'); }
-            else if(val.includes('credit card') || val.includes('cc bill')) { catSelect.value = 'Credit Card'; this.updateTypeToggle('expense'); }
-            else if(val.includes('freelance')) { catSelect.value = 'Freelance'; this.updateTypeToggle('income'); }
-            else if(val.includes('food') || val.includes('lunch') || val.includes('dinner')) { catSelect.value = 'Food'; this.updateTypeToggle('expense'); }
+            const catSelect = document.getElementById('fin-category');
+            if (!catSelect || this.currentEntryType === 'loan') return;
             
-            // manually trigger change event on select to update interest field visibility
-            catSelect.dispatchEvent(new Event('change'));
+            if (this.currentEntryType === 'income') {
+                if(val.includes('salary')) catSelect.value = 'Salary';
+                else if(val.includes('freelance')) catSelect.value = 'Freelance';
+            } else {
+                if(val.includes('rent')) catSelect.value = 'Rent';
+                else if(val.includes('emi') || val.includes('repay')) catSelect.value = 'EMI';
+                else if(val.includes('credit card') || val.includes('cc bill')) catSelect.value = 'Credit Card';
+                else if(val.includes('food') || val.includes('lunch') || val.includes('dinner')) catSelect.value = 'Food';
+                catSelect.dispatchEvent(new Event('change'));
+            }
         });
 
-        // Add transaction
+        // Add Entry
         document.getElementById('fin-add-btn')?.addEventListener('click', () => {
             const title = document.getElementById('fin-title').value.trim();
-            const amount = parseFloat(document.getElementById('fin-amount').value);
-            const category = document.getElementById('fin-category').value;
-            const date = document.getElementById('fin-date').value;
+            const date = document.getElementById('fin-date').value || new Date().toISOString().split('T')[0];
             const person = document.getElementById('fin-person').value.trim() || 'Main';
-            const interestPercentage = parseFloat(document.getElementById('fin-interest').value) || 0;
 
-            if (!title || !amount || amount <= 0) {
-                showToast('Please fill in title and a valid amount.', 'error');
+            if (!title) {
+                showToast('Please enter a title.', 'error');
                 return;
             }
-            if (interestPercentage > 100) {
-                showToast('Interest percentage cannot exceed 100%.', 'error');
-                return;
-            }
-            
-            let interestAmount = 0;
-            if (category === 'EMI' && interestPercentage > 0) {
-                interestAmount = (amount * interestPercentage) / 100;
+
+            if (this.currentEntryType === 'loan') {
+                const sanctioned = parseFloat(document.getElementById('fin-sanctioned').value);
+                const paidAlready = parseFloat(document.getElementById('fin-paid-already').value) || 0;
+                const emi = parseFloat(document.getElementById('fin-emi').value) || 0;
+                const rate = parseFloat(document.getElementById('fin-rate').value) || 0;
+
+                if (!sanctioned || sanctioned <= 0) {
+                    showToast('Please enter a valid sanctioned amount.', 'error');
+                    return;
+                }
+                
+                if (paidAlready > sanctioned) {
+                    showToast('Amount already paid cannot exceed sanctioned amount.', 'error');
+                    return;
+                }
+
+                const loans = this.storage.get('loans') || [];
+                loans.push({
+                    id: 'loan_' + Date.now(),
+                    title,
+                    person,
+                    amountSanctioned: sanctioned,
+                    amountLeftToPay: sanctioned - paidAlready,
+                    emiPerMonth: emi,
+                    interestRate: rate,
+                    date
+                });
+                this.saveLoans(loans);
+                showToast('New Loan Account Added!');
+
+            } else {
+                const amount = parseFloat(document.getElementById('fin-amount').value);
+                const category = document.getElementById('fin-category').value;
+
+                if (!amount || amount <= 0) {
+                    showToast('Please enter a valid amount.', 'error');
+                    return;
+                }
+
+                let interestAmount = 0;
+                let linkedLoanId = null;
+
+                if (this.currentEntryType === 'expense') {
+                    interestAmount = parseFloat(document.getElementById('fin-interest')?.value) || 0;
+                    linkedLoanId = document.getElementById('fin-linked-loan')?.value;
+                }
+
+                const txns = this.storage.get('transactions') || [];
+                txns.push({
+                    id: 'txn_' + Date.now(),
+                    title,
+                    amount,
+                    interest: interestAmount,
+                    category,
+                    person,
+                    type: this.currentEntryType,
+                    linkedLoanId,
+                    date
+                });
+                this.saveTransactions(txns);
+
+                // Deduct from linked loan if EMI
+                if (linkedLoanId && category === 'EMI') {
+                    const loans = this.storage.get('loans') || [];
+                    const lIdx = loans.findIndex(l => l.id === linkedLoanId);
+                    if (lIdx > -1) {
+                        // Deduct the principal portion (Amount - Interest) from the outstanding loan balance
+                        const principalPaid = amount - interestAmount;
+                        loans[lIdx].amountLeftToPay = Math.max(0, loans[lIdx].amountLeftToPay - principalPaid);
+                        this.saveLoans(loans);
+                    }
+                }
+                showToast(`${this.currentEntryType === 'income' ? 'Income' : 'Expense'} logged!`);
             }
 
-            const txns = this.storage.get('transactions') || []; // get all
-            txns.push({
-                id: 'txn_' + Date.now(),
-                title,
-                amount,
-                interest: interestAmount,
-                category,
-                person,
-                type: this.currentType,
-                date: date || new Date().toISOString().split('T')[0]
-            });
-            this.saveTransactions(txns);
-            showToast(`${this.currentType === 'income' ? 'Income' : 'Expense'} added for ${person}!`);
-            
-            // Auto-switch filter to that person so they see what they just added
             if (this.currentPersonFilter !== 'All' && this.currentPersonFilter !== person) {
                 this.currentPersonFilter = person;
             }
-
-            // Re-render
             this.render();
         });
 
-        // Delete
+        // Delete Transaction
         document.querySelectorAll('#view-finance .fin-del').forEach(btn => {
             btn.addEventListener('click', async () => {
-                const ok = await showConfirmModal('Delete this transaction?', { title: 'Delete Transaction', confirmLabel: 'Delete', danger: true });
+                const ok = await showConfirmModal('Delete this transaction?', { title: 'Delete', confirmLabel: 'Delete', danger: true });
                 if (!ok) return;
-                const txns = this.storage.get('transactions').filter(t => t.id !== btn.dataset.id);
-                this.saveTransactions(txns);
+                
+                const id = btn.dataset.id;
+                const txns = this.storage.get('transactions');
+                const txn = txns.find(t => t.id === id);
+                
+                // If it was an EMI linked to a loan, restore the principal amount
+                if (txn && txn.linkedLoanId && txn.category === 'EMI') {
+                    const loans = this.storage.get('loans') || [];
+                    const lIdx = loans.findIndex(l => l.id === txn.linkedLoanId);
+                    if (lIdx > -1) {
+                        const principalPaid = txn.amount - (txn.interest || 0);
+                        loans[lIdx].amountLeftToPay += principalPaid;
+                        this.saveLoans(loans);
+                    }
+                }
+
+                const updatedTxns = txns.filter(t => t.id !== id);
+                this.saveTransactions(updatedTxns);
                 showToast('Transaction deleted.');
+                this.render();
+            });
+        });
+
+        // Delete/Close Loan
+        document.querySelectorAll('#view-finance .fin-del-loan').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const ok = await showConfirmModal('Close this loan account? (Linked transactions will be kept)', { title: 'Close Loan', confirmLabel: 'Close Loan', danger: true });
+                if (!ok) return;
+                
+                const id = btn.dataset.id;
+                const loans = this.storage.get('loans').filter(l => l.id !== id);
+                this.saveLoans(loans);
+                showToast('Loan account closed.');
                 this.render();
             });
         });

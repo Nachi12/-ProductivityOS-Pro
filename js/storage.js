@@ -24,7 +24,8 @@ export class StorageManager {
                 brainDump: '',
                 habits: [],
                 projects: [],
-                transactions: []
+                transactions: [],
+                loans: []
             };
             localStorage.setItem(this.NAMESPACE, JSON.stringify(defaultState));
         }

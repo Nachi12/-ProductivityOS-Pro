@@ -24,6 +24,22 @@ export class ExportManager {
 
             const wb = XLSX.utils.book_new();
 
+            // Export Loans
+            const loans = storage.get('loans') || [];
+            if (loans.length > 0) {
+                const loanData = loans.map(l => ({
+                    'Date': l.date,
+                    'Person': l.person,
+                    'Loan Title': l.title,
+                    'Amount Sanctioned (₹)': l.amountSanctioned,
+                    'EMI per month (₹)': l.emiPerMonth,
+                    'Interest Rate (%)': l.interestRate,
+                    'Amount Left to Pay (₹)': l.amountLeftToPay
+                }));
+                const wsLoans = XLSX.utils.json_to_sheet(loanData);
+                XLSX.utils.book_append_sheet(wb, wsLoans, "Active Loans");
+            }
+
             // Export Finance
             const txns = storage.get('transactions') || [];
             if (txns.length > 0) {
@@ -34,7 +50,8 @@ export class ExportManager {
                     'Type': t.type,
                     'Category': t.category,
                     'Amount (₹)': t.amount,
-                    'Interest Included (₹)': t.interest || 0
+                    'Interest Included (₹)': t.interest || 0,
+                    'Linked Loan ID': t.linkedLoanId || 'N/A'
                 }));
                 const wsFinance = XLSX.utils.json_to_sheet(financeData);
                 XLSX.utils.book_append_sheet(wb, wsFinance, "Finance Audit");
