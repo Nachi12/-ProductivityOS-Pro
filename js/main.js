@@ -7,7 +7,7 @@ import { TaskManager } from './tasks.js';
 import { SettingsManager } from './settings.js';
 import { CalendarManager } from './calendar.js';
 import { HabitsManager } from './habits.js';
-import { FinanceManager } from './finance.js';
+import { FinanceManager } from './finance.js?v=28';
 import { ReadingManager } from './reading.js';
 import { ProjectsManager } from './projects.js';
 import { GoalsManager } from './goals.js';

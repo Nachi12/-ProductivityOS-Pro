@@ -125,6 +125,46 @@ export class FinanceManager {
                 .fin-add-form { grid-template-columns: 1fr; }
                 .loan-stats { grid-template-columns: 1fr; }
                 .fin-kpi-grid { grid-template-columns: 1fr 1fr; }
+                
+                /* Responsive Card Layout for Tables */
+                .data-table, .data-table thead, .data-table tbody, .data-table th, .data-table td, .data-table tr { 
+                    display: block; 
+                }
+                .data-table { min-width: 100%; border: none; }
+                .data-table thead tr { 
+                    position: absolute; top: -9999px; left: -9999px;
+                }
+                .data-table tr { 
+                    border: 1px solid var(--border-color); 
+                    margin-bottom: var(--spacing-3); 
+                    border-radius: var(--radius-sm); 
+                    overflow: hidden; 
+                }
+                .data-table td { 
+                    border: none;
+                    border-bottom: 1px solid var(--border-light); 
+                    position: relative;
+                    padding-left: 40%;
+                    text-align: right;
+                    white-space: normal;
+                }
+                .data-table td:before { 
+                    content: attr(data-label);
+                    position: absolute;
+                    left: 16px;
+                    width: 35%; 
+                    padding-right: 10px; 
+                    white-space: nowrap;
+                    text-align: left;
+                    font-weight: 600;
+                    color: var(--text-muted);
+                    text-transform: uppercase;
+                    font-size: 0.75rem;
+                }
+                /* Category header rows should not have card styling */
+                .data-table tr.fin-group-header, .data-table tr.fin-person-header { border: none; background: transparent; }
+                .data-table tr.fin-group-header td, .data-table tr.fin-person-header td { padding-left: 16px; text-align: left; border: none; }
+                .data-table tr.fin-group-header td:before, .data-table tr.fin-person-header td:before { content: none; }
             }
             @media (max-width: 480px) {
                 .fin-kpi-grid { grid-template-columns: 1fr; }
@@ -234,21 +274,23 @@ export class FinanceManager {
                 if (groupTxns.length === 0) return '';
                 return `
                     <tbody>
-                        <tr><td colspan="6" style="background: rgba(255,255,255,0.03); font-weight: 600; padding: 10px 16px; color: var(--text-primary); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em;">${title}</td></tr>
+                        <tr class="fin-group-header"><td colspan="6" style="background: rgba(255,255,255,0.03); font-weight: 600; padding: 10px 16px; color: var(--text-primary); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em;">${title}</td></tr>
                         ${groupTxns.map(t => `
                             <tr>
-                                <td><span class="fin-badge ${t.type}">${t.type === 'income' ? '↑ Income' : '↓ Expense'}</span></td>
-                                <td>
-                                    ${t.title} 
-                                    ${this.currentPersonFilter === 'All' ? `<span class="person-tag"><i class="fa-solid fa-user"></i> ${t.person}</span>` : ''}
-                                    ${t.interest > 0 ? `<span class="person-tag interest-tag">Includes ${this.formatCurrency(t.interest)} Interest</span>` : ''}
+                                <td data-label="Type"><span class="fin-badge ${t.type}">${t.type === 'income' ? '↑ Income' : '↓ Expense'}</span></td>
+                                <td data-label="Title">
+                                    <div style="margin-bottom: 4px;">${t.title}</div>
+                                    <div>
+                                        ${this.currentPersonFilter === 'All' ? `<span class="person-tag"><i class="fa-solid fa-user"></i> ${t.person}</span>` : ''}
+                                        ${t.interest > 0 ? `<span class="person-tag interest-tag">Includes ${this.formatCurrency(t.interest)} Interest</span>` : ''}
+                                    </div>
                                 </td>
-                                <td>${t.category}</td>
-                                <td class="fin-amount ${t.type}">${t.type === 'income' ? '+' : '-'}${this.formatCurrency(t.amount)}</td>
-                                <td>${new Date(t.date + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</td>
-                                <td>
-                                    <button class="fin-edit" data-id="${t.id}" style="background:none; border:none; color:var(--text-muted); cursor:pointer; margin-right:8px;"><i class="fa-solid fa-pen"></i></button>
-                                    <button class="fin-del" data-id="${t.id}"><i class="fa-solid fa-trash"></i></button>
+                                <td data-label="Category">${t.category}</td>
+                                <td data-label="Amount" class="fin-amount ${t.type}">${t.type === 'income' ? '+' : '-'}${this.formatCurrency(t.amount)}</td>
+                                <td data-label="Date">${new Date(t.date + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</td>
+                                <td data-label="Actions" style="text-align: right;">
+                                    <button class="fin-edit" data-id="${t.id}" style="background:none; border:none; color:var(--text-muted); cursor:pointer; margin-right:8px; padding: 4px;"><i class="fa-solid fa-pen"></i></button>
+                                    <button class="fin-del" data-id="${t.id}" style="padding: 4px;"><i class="fa-solid fa-trash"></i></button>
                                 </td>
                             </tr>
                         `).join('')}
@@ -256,9 +298,35 @@ export class FinanceManager {
                 `;
             };
 
-            const incomes = sorted.filter(t => t.type === 'income');
-            const loans = sorted.filter(t => t.type === 'expense' && (t.category === 'EMI' || t.category === 'Credit Card' || (t.title && t.title.toLowerCase().includes('loan'))));
-            const others = sorted.filter(t => t.type === 'expense' && !(t.category === 'EMI' || t.category === 'Credit Card' || (t.title && t.title.toLowerCase().includes('loan'))));
+            const uniquePersons = [...new Set(sorted.map(t => t.person || 'Main'))].sort();
+            
+            let tbodyHTML = '';
+            
+            uniquePersons.forEach(person => {
+                const pTxns = sorted.filter(t => (t.person || 'Main') === person);
+                if (pTxns.length === 0) return;
+                
+                // Add a person header row if we are showing 'All' persons
+                if (this.currentPersonFilter === 'All') {
+                    tbodyHTML += `
+                        <tbody>
+                            <tr class="fin-person-header">
+                                <td colspan="6" style="background: var(--bg-sidebar); padding: 16px 16px 8px 16px; border-bottom: 2px solid var(--border-color);">
+                                    <h3 style="margin: 0; color: var(--accent-color); font-size: 1.1rem; font-weight: 700;"><i class="fa-solid fa-user"></i> ${person}</h3>
+                                </td>
+                            </tr>
+                        </tbody>
+                    `;
+                }
+
+                const incomes = pTxns.filter(t => t.type === 'income');
+                const loans = pTxns.filter(t => t.type === 'expense' && (t.category === 'EMI' || t.category === 'Credit Card' || (t.title && t.title.toLowerCase().includes('loan'))));
+                const others = pTxns.filter(t => t.type === 'expense' && !(t.category === 'EMI' || t.category === 'Credit Card' || (t.title && t.title.toLowerCase().includes('loan'))));
+
+                tbodyHTML += renderRows(incomes, 'Income');
+                tbodyHTML += renderRows(loans, 'Expenses: Loans & Cards');
+                tbodyHTML += renderRows(others, 'Expenses: Other');
+            });
 
             tableHTML = `
                 <div class="table-responsive">
@@ -266,9 +334,7 @@ export class FinanceManager {
                         <thead><tr>
                             <th>Type</th><th>Title</th><th>Category</th><th>Amount</th><th>Date</th><th></th>
                         </tr></thead>
-                        ${renderRows(incomes, 'Income')}
-                        ${renderRows(loans, 'Expenses: Loans & Cards')}
-                        ${renderRows(others, 'Expenses: Other')}
+                        ${tbodyHTML}
                     </table>
                 </div>
             `;
