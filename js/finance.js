@@ -287,6 +287,7 @@ export class FinanceManager {
                 <input class="fin-form-input" id="fin-paid-already" placeholder="Amount Already Paid (₹) (Optional)" type="number" min="0" step="0.01">
                 <input class="fin-form-input" id="fin-emi" placeholder="EMI per month (₹)" type="number" min="0" step="0.01">
                 <input class="fin-form-input" id="fin-rate" placeholder="Interest Rate (%)" type="number" min="0" step="0.1">
+                <input class="fin-form-input" id="fin-emi-date" placeholder="EMI Due Date (1-31)" type="number" min="1" max="31">
             `;
         } else {
             formHTML = `
@@ -524,6 +525,7 @@ export class FinanceManager {
                 const paidAlready = parseFloat(document.getElementById('fin-paid-already').value) || 0;
                 const emi = parseFloat(document.getElementById('fin-emi').value) || 0;
                 const rate = parseFloat(document.getElementById('fin-rate').value) || 0;
+                const emiDate = parseInt(document.getElementById('fin-emi-date').value) || null;
 
                 if (!sanctioned || sanctioned <= 0) {
                     showToast('Please enter a valid sanctioned amount.', 'error');
@@ -535,6 +537,10 @@ export class FinanceManager {
                     return;
                 }
 
+                // Default lastEmiPaidMonth to current month to avoid immediately prompting them for a loan they just added
+                const today = new Date();
+                const currentMonthStr = today.getFullYear() + '-' + (today.getMonth() + 1);
+
                 const loans = this.storage.get('loans') || [];
                 loans.push({
                     id: 'loan_' + Date.now(),
@@ -545,6 +551,8 @@ export class FinanceManager {
                     amountLeftToPay: sanctioned - paidAlready,
                     emiPerMonth: emi,
                     interestRate: rate,
+                    emiDate: emiDate,
+                    lastEmiPaidMonth: currentMonthStr,
                     date
                 });
                 this.saveLoans(loans);
@@ -739,7 +747,8 @@ export class FinanceManager {
                     { type: 'row', children: [
                         { key: 'emiPerMonth', label: 'EMI per month (₹)', type: 'number', value: loan.emiPerMonth },
                         { key: 'interestRate', label: 'Interest Rate (%)', type: 'number', value: loan.interestRate }
-                    ]}
+                    ]},
+                    { key: 'emiDate', label: 'EMI Due Date (1-31)', type: 'number', value: loan.emiDate || '' }
                 ];
 
                 const result = await showFormModal({
@@ -759,6 +768,7 @@ export class FinanceManager {
                 loan.amountLeftToPay = parseFloat(result.amountLeftToPay);
                 loan.emiPerMonth = parseFloat(result.emiPerMonth) || 0;
                 loan.interestRate = parseFloat(result.interestRate) || 0;
+                loan.emiDate = parseInt(result.emiDate) || null;
 
                 this.saveLoans(loans);
                 showToast('Loan updated.');

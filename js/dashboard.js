@@ -1,5 +1,6 @@
 // js/dashboard.js
 import { showToast } from './toast.js';
+import { showFormModal } from './modal.js';
 
 export class Dashboard {
     constructor(storage) {
@@ -13,6 +14,7 @@ export class Dashboard {
         this.renderTasks();
         this.renderKPIs();
         this.initChart();
+        this.checkEmiDues();
     }
 
     renderGreeting() {
@@ -239,5 +241,97 @@ export class Dashboard {
                 }
             });
         }
+    }
+
+    async checkEmiDues() {
+        const loans = this.storage.get('loans') || [];
+        const alertContainer = document.getElementById('dashboard-alerts');
+        if (!alertContainer) return;
+        
+        alertContainer.innerHTML = '';
+        
+        const today = new Date();
+        const currentMonthStr = today.getFullYear() + '-' + (today.getMonth() + 1);
+        const currentDate = today.getDate();
+
+        for (let lIdx = 0; lIdx < loans.length; lIdx++) {
+            const loan = loans[lIdx];
+            if (loan.amountLeftToPay <= 0 || !loan.emiDate) continue;
+            
+            // Check if due: Date has passed AND hasn't paid this month
+            if (currentDate >= loan.emiDate && loan.lastEmiPaidMonth !== currentMonthStr) {
+                
+                const alertDiv = document.createElement('div');
+                alertDiv.className = 'card';
+                alertDiv.style.border = '1px solid var(--clr-orange)';
+                alertDiv.style.marginBottom = 'var(--spacing-3)';
+                alertDiv.style.background = 'rgba(244, 81, 30, 0.05)';
+                
+                alertDiv.innerHTML = `
+                    <div class="card-body" style="display:flex; justify-content:space-between; align-items:center; padding: 12px 16px;">
+                        <div>
+                            <h3 style="color:var(--clr-orange); margin-bottom:4px; font-size:1rem;"><i class="fa-solid fa-triangle-exclamation"></i> EMI Due: ${loan.title}</h3>
+                            <p style="font-size:0.85rem; color:var(--text-secondary); margin:0;">Your monthly EMI of <strong>₹${loan.emiPerMonth}</strong> is due. Please log the payment to keep your balance accurate.</p>
+                        </div>
+                        <button class="btn btn-primary btn-log-emi" data-idx="${lIdx}" style="background:var(--clr-orange); color:#fff; border:none;">Log Payment</button>
+                    </div>
+                `;
+                alertContainer.appendChild(alertDiv);
+            }
+        }
+        
+        // Bind Log Payment buttons
+        alertContainer.querySelectorAll('.btn-log-emi').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                const idx = parseInt(e.target.dataset.idx);
+                const loan = loans[idx];
+                
+                const result = await showFormModal({
+                    title: `Log EMI for ${loan.title}`,
+                    icon: 'fa-solid fa-money-check-dollar',
+                    submitLabel: 'Confirm Payment',
+                    submitIcon: 'fa-solid fa-check',
+                    fields: [
+                        { key: 'amount', label: 'Total EMI Paid (₹)', type: 'number', value: loan.emiPerMonth, required: true },
+                        { key: 'interest', label: 'Interest Part (₹) (Crucial for correct balance deduction)', type: 'number', value: 0, required: true }
+                    ]
+                });
+                
+                if (!result) return;
+                
+                const amountPaid = parseFloat(result.amount) || 0;
+                const interestPaid = parseFloat(result.interest) || 0;
+                
+                if (amountPaid <= 0) return;
+                
+                // 1. Log Expense Transaction
+                const txns = this.storage.get('transactions') || [];
+                txns.push({
+                    id: 'txn_' + Date.now(),
+                    title: `EMI Payment: ${loan.title}`,
+                    amount: amountPaid,
+                    interest: interestPaid,
+                    category: 'EMI',
+                    person: loan.person || 'Main',
+                    type: 'expense',
+                    linkedLoanId: loan.id,
+                    date: today.toISOString().split('T')[0]
+                });
+                this.storage.set('transactions', txns);
+                
+                // 2. Deduct Principal from Loan
+                const principalPaid = amountPaid - interestPaid;
+                loan.amountLeftToPay = Math.max(0, loan.amountLeftToPay - principalPaid);
+                
+                // 3. Update last paid month so it disappears
+                loan.lastEmiPaidMonth = currentMonthStr;
+                this.storage.set('loans', loans);
+                
+                showToast(`EMI Logged. ₹${principalPaid} deducted from loan balance.`);
+                
+                // Refresh Dashboard Alerts
+                this.checkEmiDues(); 
+            });
+        });
     }
 }
