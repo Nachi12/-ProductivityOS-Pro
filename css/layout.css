@@ -10,6 +10,8 @@ body {
 .sidebar {
     width: var(--sidebar-width);
     background-color: var(--bg-sidebar);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
     border-right: 1px solid var(--border-color);
     display: flex;
     flex-direction: column;
@@ -86,7 +88,9 @@ body {
     align-items: center;
     justify-content: space-between;
     padding: 0 var(--spacing-6);
-    background-color: var(--bg-main);
+    background-color: var(--bg-sidebar);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
     border-bottom: 1px solid var(--border-color);
 }
 
@@ -107,7 +111,7 @@ body {
 .topbar-search:focus-within { border-color: var(--accent-color); box-shadow: 0 0 0 2px var(--accent-light); }
 
 .topbar-actions { display: flex; align-items: center; gap: var(--spacing-3); }
-.user-avatar { width: 36px; height: 36px; border-radius: 50%; background-color: var(--accent-color); color: white; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 0.9rem; }
+.user-avatar { width: 36px; height: 36px; border-radius: 50%; background-color: var(--accent-color); color: var(--accent-text, #0F0F0F); display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 0.9rem; }
 
 /* Views Container */
 .views-container {

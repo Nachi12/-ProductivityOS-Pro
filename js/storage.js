@@ -1,8 +1,16 @@
 // js/storage.js
+import { authManager } from './auth.js';
+import { showToast } from './toast.js';
+
 export class StorageManager {
     constructor() {
         this.NAMESPACE = 'prodos_data_v1';
+        this.syncTimeout = null;
+        this.backendUrl = 'http://localhost:3000/api/sync';
         this.initializeDB();
+        
+        // Listen for auth state changes to trigger fetch
+        authManager.onLoginCallback = () => this.fetchCloudData();
     }
 
     initializeDB() {
@@ -15,54 +23,88 @@ export class StorageManager {
                 ],
                 brainDump: '',
                 habits: [],
-                projects: []
+                projects: [],
+                transactions: []
             };
             localStorage.setItem(this.NAMESPACE, JSON.stringify(defaultState));
         }
     }
 
-    getAllData() {
-        return JSON.parse(localStorage.getItem(this.NAMESPACE));
+    get(key) {
+        const data = localStorage.getItem(this.NAMESPACE);
+        if (!data) return null;
+        const parsed = JSON.parse(data);
+        return key ? parsed[key] : parsed;
     }
 
-    saveAllData(data) {
+    set(key, value) {
+        const data = this.get() || {};
+        data[key] = value;
+        data.lastUpdated = new Date().toISOString();
         localStorage.setItem(this.NAMESPACE, JSON.stringify(data));
-    }
-
-    get(collection) {
-        const data = this.getAllData();
-        return data[collection] || null;
-    }
-
-    set(collection, value) {
-        const data = this.getAllData();
-        data[collection] = value;
-        this.saveAllData(data);
+        this.queueSync();
     }
     
-    // Exports all data as a Blob URL
-    exportBackup() {
-        const data = JSON.stringify(this.getAllData(), null, 2);
-        const blob = new Blob([data], { type: 'application/json' });
-        return URL.createObjectURL(blob);
-    }
-
-    // Imports from JSON string
-    importBackup(jsonString) {
+    // New Sync Functionality
+    async fetchCloudData() {
+        if (!authManager || !authManager.currentUser) return;
         try {
-            const data = JSON.parse(jsonString);
-            if(data && data.settings && data.tasks) {
-                this.saveAllData(data);
-                return true;
+            const res = await fetch(this.backendUrl, {
+                headers: {
+                    'Authorization': 'Bearer ' + authManager.token,
+                    'x-user-uid': authManager.currentUser.uid
+                }
+            });
+            const result = await res.json();
+            if (result.success && result.data && Object.keys(result.data).length > 0) {
+                const cloudData = result.data;
+                const localData = this.get() || {};
+                
+                const cloudTime = new Date(cloudData.lastUpdated || 0).getTime();
+                const localTime = new Date(localData.lastUpdated || 0).getTime();
+
+                if (cloudTime > localTime) {
+                    localStorage.setItem(this.NAMESPACE, JSON.stringify(cloudData));
+                    console.log("Cloud sync complete. Reloading UI...");
+                    showToast("Data synced from cloud!");
+                    setTimeout(() => location.reload(), 1000);
+                } else if (localTime > cloudTime) {
+                    console.log("Local data is newer. Pushing to cloud.");
+                    this.queueSync(0);
+                } else {
+                    console.log("Cloud data matches local data. No reload needed.");
+                }
+            } else if (result.success && (!result.data || Object.keys(result.data).length === 0)) {
+                // First login: upload local data to cloud
+                this.queueSync(0); 
             }
-            return false;
-        } catch(e) {
-            return false;
+        } catch (err) {
+            console.error("Cloud sync failed:", err);
+            // Non-blocking, continue using local data
         }
     }
 
-    reset() {
-        localStorage.removeItem(this.NAMESPACE);
-        this.initializeDB();
+    queueSync(delay = 2000) {
+        if (!authManager || !authManager.currentUser) return;
+        if (this.syncTimeout) clearTimeout(this.syncTimeout);
+        
+        // Debounce sync
+        this.syncTimeout = setTimeout(async () => {
+            try {
+                const syncData = this.get();
+                await fetch(this.backendUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + authManager.token,
+                        'x-user-uid': authManager.currentUser.uid
+                    },
+                    body: JSON.stringify(syncData)
+                });
+                console.log("Local changes pushed to cloud.");
+            } catch (err) {
+                console.error("Cloud push failed:", err);
+            }
+        }, delay);
     }
 }

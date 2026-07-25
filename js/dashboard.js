@@ -202,6 +202,10 @@ export class Dashboard {
             Chart.defaults.color = 'var(--text-muted)';
             Chart.defaults.font.family = 'Inter';
             
+            const style = getComputedStyle(document.documentElement);
+            const accentColor = style.getPropertyValue('--accent-color').trim() || '#C7FF2E';
+            const accentLight = style.getPropertyValue('--accent-light').trim() || 'rgba(199, 255, 46, 0.15)';
+            
             this.chartInstance = new Chart(ctx, {
                 type: 'line',
                 data: {
@@ -209,8 +213,8 @@ export class Dashboard {
                     datasets: [{
                         label: 'Tasks Completed',
                         data: [5, 9, 3, 12, 8, 2, 4],
-                        borderColor: '#2383e2',
-                        backgroundColor: 'rgba(35, 131, 226, 0.1)',
+                        borderColor: accentColor,
+                        backgroundColor: accentLight,
                         borderWidth: 2,
                         fill: true,
                         tension: 0.4

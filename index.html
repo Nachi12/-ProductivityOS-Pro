@@ -19,20 +19,30 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <!-- CSS Architecture -->
-    <link rel="stylesheet" href="css/reset.css">
-    <link rel="stylesheet" href="css/variables.css">
-    <link rel="stylesheet" href="css/theme.css">
-    <link rel="stylesheet" href="css/layout.css">
-    <link rel="stylesheet" href="css/components.css">
-    <link rel="stylesheet" href="css/utilities.css">
-    <link rel="stylesheet" href="css/animations.css">
-    <link rel="stylesheet" href="css/responsive.css">
-    
+    <link rel="stylesheet" href="css/reset.css?v=2">
+    <link rel="stylesheet" href="css/variables.css?v=2">
+    <link rel="stylesheet" href="css/theme.css?v=2">
+    <link rel="stylesheet" href="css/layout.css?v=2">
+    <link rel="stylesheet" href="css/components.css?v=2">
+    <link rel="stylesheet" href="css/utilities.css?v=2">
+    <!-- SheetJS for Excel Export -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <link rel="stylesheet" href="css/animations.css?v=2">
     <!-- Module Specific CSS -->
-    <link rel="stylesheet" href="css/dashboard.css">
-    <link rel="stylesheet" href="css/tasks.css">
+    <link rel="stylesheet" href="css/dashboard.css?v=2">
+    <link rel="stylesheet" href="css/tasks.css?v=2">
+    
+    <!-- Responsive CSS MUST be last to override other styles -->
+    <link rel="stylesheet" href="css/responsive.css?v=2">
 </head>
 <body data-theme="system">
+    <!-- Auth Overlay -->
+    <div id="auth-overlay" style="display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: var(--bg-primary); z-index: 10000; align-items: center; justify-content: center; flex-direction: column;">
+        <h1 style="margin-bottom: 20px;">Welcome to ProductivityOS</h1>
+        <p style="margin-bottom: 40px; color: var(--text-muted);">Please sign in to access your dashboard.</p>
+        <button id="auth-login-btn" class="btn btn-primary" style="font-size: 1.2rem; padding: 15px 30px;"><i class="fa-brands fa-google"></i> Sign in with Google</button>
+        <p style="margin-top: 20px; font-size: 0.8rem; color: var(--text-muted);">You need to add Firebase credentials to js/auth.js for this to work.</p>
+    </div>
 
     <!-- Sidebar Navigation -->
     <aside id="sidebar" class="sidebar">
@@ -132,8 +142,11 @@
                         <h1 id="greeting">Good morning.</h1>
                         <p class="subtitle text-muted" id="current-date-display">Let's make today count.</p>
                     </div>
-                    <div class="header-actions">
-                        <button class="btn btn-primary"><i class="fa-solid fa-plus"></i> Quick Add</button>
+                    <div class="topbar-actions">
+                        <button class="btn btn-secondary" id="export-excel-btn"><i class="fa-solid fa-file-excel" style="color: #4CAF50;"></i> Export Data</button>
+                        <button class="btn btn-secondary" id="auth-logout-btn"><i class="fa-solid fa-sign-out-alt"></i> Logout</button>
+                        <button class="btn btn-primary" id="btn-quick-add"><i class="fa-solid fa-plus"></i> Quick Add</button>
+                        <div class="user-avatar" id="auth-user-name">OS</div>
                     </div>
                 </div>
 
@@ -265,7 +278,8 @@
                             <div class="form-group">
                                 <label>Accent Color</label>
                                 <div class="color-picker" id="accent-color-picker">
-                                    <div class="color-swatch active" style="background: #2383e2" data-color="blue"></div>
+                                    <div class="color-swatch active" style="background: #ff8a65" data-color="peach"></div>
+                                    <div class="color-swatch" style="background: #2383e2" data-color="blue"></div>
                                     <div class="color-swatch" style="background: #8e24aa" data-color="purple"></div>
                                     <div class="color-swatch" style="background: #43a047" data-color="green"></div>
                                     <div class="color-swatch" style="background: #f4511e" data-color="orange"></div>
@@ -298,6 +312,9 @@
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
 
     <!-- Application Logic (ES Modules) -->
-    <script type="module" src="js/main.js"></script>
+    <script type="module" src="js/main.js?v=12"></script>
+    <script type="module" src="js/auth.js?v=12"></script>
+    <script type="module" src="js/export.js?v=12"></script>
+    <script type="module" src="js/storage.js?v=12"></script>
 </body>
 </html>

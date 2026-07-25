@@ -9,7 +9,7 @@
     font-size: 0.9rem;
     transition: all var(--transition-fast);
 }
-.btn-primary { background-color: var(--accent-color); color: white; }
+.btn-primary { background-color: var(--accent-color); color: var(--accent-text, #0F0F0F); }
 .btn-primary:hover { background-color: var(--accent-hover); box-shadow: var(--shadow-md); }
 .btn-secondary { background-color: var(--bg-hover); color: var(--text-primary); border: 1px solid var(--border-color); }
 .btn-secondary:hover { background-color: var(--border-color); }
@@ -20,6 +20,8 @@
 /* Cards */
 .card {
     background-color: var(--bg-card);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-md);
     box-shadow: var(--shadow-sm);
