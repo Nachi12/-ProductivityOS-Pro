@@ -53,6 +53,13 @@ class AuthManager {
             }
         } else {
             console.warn("Firebase not configured. Bypassing real auth for local UI testing.");
+            
+            // Check if user intentionally logged out this session
+            if (sessionStorage.getItem('mock_logged_out') === 'true') {
+                this.updateUI(false);
+                return;
+            }
+
             this.currentUser = { uid: 'local-test-user', displayName: 'Test User' };
             this.token = 'mock-token';
             // We fake a login state initially for the MVP demo if keys aren't set
@@ -70,7 +77,8 @@ class AuthManager {
 
     async login() {
         if (!this.auth) {
-            showToast("Firebase keys not set! Logging in as mock user.", "warning");
+            showToast("Logging in as mock user.", "success");
+            sessionStorage.removeItem('mock_logged_out');
             this.currentUser = { uid: 'local-test-user', displayName: 'Test User' };
             this.token = 'mock-token';
             this.updateUI(true);
@@ -89,8 +97,12 @@ class AuthManager {
     async logout() {
         if (this.auth) {
             await this.signOut(this.auth);
+        } else {
+            sessionStorage.setItem('mock_logged_out', 'true');
         }
-        localStorage.clear();
+        
+        // NEVER call localStorage.clear() here as it wipes all ProductivityOS data!
+        // We just reload the page to clear local memory states.
         location.reload();
     }
     

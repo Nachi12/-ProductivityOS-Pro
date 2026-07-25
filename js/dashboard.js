@@ -82,6 +82,14 @@ export class Dashboard {
 
         if (!dump) return;
 
+        const quickAddBtn = document.getElementById('btn-quick-add');
+        if (quickAddBtn) {
+            quickAddBtn.addEventListener('click', () => {
+                dump.focus();
+                dump.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            });
+        }
+
         // Render existing dump entries on load
         this.renderDumpList();
 

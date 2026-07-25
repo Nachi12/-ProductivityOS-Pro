@@ -108,14 +108,25 @@ export class FinanceManager {
             .fin-amount.expense { color: var(--clr-red); font-weight: 600; }
             .person-tag { font-size: 0.75rem; background: var(--bg-hover); padding: 2px 6px; border-radius: 4px; color: var(--text-primary); margin-left: 8px; font-weight: 700; border: 1px solid var(--border-color); }
             .interest-tag { background: rgba(244,81,30,0.1); color: var(--clr-orange); }
+            .table-responsive { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+            .data-table { width: 100%; min-width: 600px; border-collapse: collapse; }
+            .fin-panels-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--spacing-4); margin-bottom: var(--spacing-4); }
             
             @media (max-width: 900px) { 
                 .fin-container { grid-template-columns: 1fr; }
+                .fin-sidebar { display: flex; overflow-x: auto; padding: var(--spacing-3); gap: var(--spacing-2); align-items: center; white-space: nowrap; }
+                .fin-sidebar h3 { margin-bottom: 0; margin-right: var(--spacing-3); }
+                .fin-person-btn { width: auto; margin-bottom: 0; white-space: nowrap; }
                 .loan-stats { grid-template-columns: 1fr 1fr; }
+                .fin-panels-grid { grid-template-columns: 1fr; }
             }
             @media (max-width: 600px) {
                 .fin-add-form { grid-template-columns: 1fr; }
                 .loan-stats { grid-template-columns: 1fr; }
+                .fin-kpi-grid { grid-template-columns: 1fr 1fr; }
+            }
+            @media (max-width: 480px) {
+                .fin-kpi-grid { grid-template-columns: 1fr; }
             }
         `;
         document.head.appendChild(style);
@@ -354,7 +365,7 @@ export class FinanceManager {
                         </div></div></div>
                     </div>
 
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--spacing-4); margin-bottom: var(--spacing-4);">
+                    <div class="fin-panels-grid">
                         <div class="card">
                             <div class="card-header"><h2><i class="fa-solid fa-plus-circle"></i> Add Entry</h2></div>
                             <div class="card-body">
@@ -367,8 +378,11 @@ export class FinanceManager {
                                 <div class="fin-add-form">
                                     ${formHTML}
                                     
-                                    <input class="fin-form-input" id="fin-person" list="fin-persons" placeholder="Person (e.g. John)" value="${this.currentPersonFilter === 'All' ? 'Main' : this.currentPersonFilter}">
-                                    <datalist id="fin-persons">${personDatalist}</datalist>
+                                    <select class="fin-form-input" id="fin-person">
+                                        <option value="Main">Main</option>
+                                        ${persons.filter(p => p !== 'Main').map(p => `<option value="${p}" ${this.currentPersonFilter === p ? 'selected' : ''}>${p}</option>`).join('')}
+                                        <option value="_NEW_" style="font-weight: bold; color: var(--accent-color);">+ Add New Person...</option>
+                                    </select>
                                     
                                     <input class="fin-form-input" id="fin-date" type="date" value="${new Date().toISOString().split('T')[0]}" style="grid-column: 1 / -1;">
                                     <button class="btn btn-primary" id="fin-add-btn" style="grid-column: 1 / -1; justify-content: center;"><i class="fa-solid fa-check"></i> Save Entry</button>
@@ -447,6 +461,32 @@ export class FinanceManager {
                 this.render(); // Re-render to show correct form fields
             });
         });
+        
+        // Handle Person Dropdown (+ Add New Person)
+        const personSelect = document.getElementById('fin-person');
+        if (personSelect) {
+            personSelect.addEventListener('change', async (e) => {
+                if (e.target.value === '_NEW_') {
+                    const result = await showFormModal({
+                        title: 'Add New Person',
+                        icon: 'fa-solid fa-user-plus',
+                        submitLabel: 'Add',
+                        fields: [
+                            { key: 'name', label: 'Person Name', type: 'text', placeholder: 'e.g. John', required: true }
+                        ]
+                    });
+                    if (result && result.name) {
+                        const opt = document.createElement('option');
+                        opt.value = result.name;
+                        opt.textContent = result.name;
+                        personSelect.insertBefore(opt, personSelect.lastElementChild); // Insert before _NEW_
+                        personSelect.value = result.name;
+                    } else {
+                        personSelect.value = 'Main';
+                    }
+                }
+            });
+        }
 
         // Auto-categorize based on title
         const titleInput = document.getElementById('fin-title');

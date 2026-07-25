@@ -108,4 +108,32 @@ export class StorageManager {
             }
         }, delay);
     }
+
+    exportBackup() {
+        const data = this.get();
+        const json = JSON.stringify(data, null, 2);
+        const blob = new Blob([json], { type: 'application/json' });
+        return URL.createObjectURL(blob);
+    }
+
+    importBackup(jsonString) {
+        try {
+            const data = JSON.parse(jsonString);
+            if (typeof data !== 'object' || data === null) return false;
+            
+            Object.keys(data).forEach(key => {
+                this.set(key, data[key]);
+            });
+            
+            // Force push to cloud if auth exists
+            if (authManager && authManager.currentUser) {
+                this.queueSync(0);
+            }
+            
+            return true;
+        } catch (e) {
+            console.error("Import failed:", e);
+            return false;
+        }
+    }
 }
