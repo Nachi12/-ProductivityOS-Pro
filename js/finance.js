@@ -1,6 +1,6 @@
 // js/finance.js
 import { showToast } from './toast.js';
-import { showConfirmModal } from './modal.js';
+import { showConfirmModal, showFormModal } from './modal.js';
 
 export class FinanceManager {
     constructor(storage) {
@@ -106,7 +106,7 @@ export class FinanceManager {
             .fin-del:hover { color: var(--clr-red); }
             .fin-amount.income { color: var(--clr-green); font-weight: 600; }
             .fin-amount.expense { color: var(--clr-red); font-weight: 600; }
-            .person-tag { font-size: 0.7rem; background: var(--bg-hover); padding: 2px 6px; border-radius: 4px; color: var(--text-muted); margin-left: 8px; font-weight: 500; }
+            .person-tag { font-size: 0.75rem; background: var(--bg-hover); padding: 2px 6px; border-radius: 4px; color: var(--text-primary); margin-left: 8px; font-weight: 700; border: 1px solid var(--border-color); }
             .interest-tag { background: rgba(244,81,30,0.1); color: var(--clr-orange); }
             
             @media (max-width: 900px) { 
@@ -190,8 +190,14 @@ export class FinanceManager {
                 return `
                     <div class="loan-card">
                         <div class="loan-header">
-                            <span class="loan-title"><i class="fa-solid fa-building-columns" style="color:var(--clr-orange); margin-right:8px;"></i>${l.title} ${this.currentPersonFilter === 'All' ? `<span class="person-tag"><i class="fa-solid fa-user"></i> ${l.person}</span>` : ''}</span>
-                            <button class="fin-del-loan btn btn-secondary" data-id="${l.id}" style="padding:4px 8px; font-size:0.8rem;"><i class="fa-solid fa-check"></i> Close Loan</button>
+                            <span class="loan-title"><i class="fa-solid fa-building-columns" style="color:var(--clr-orange); margin-right:8px;"></i>${l.title} 
+                                ${l.bank ? `<span class="person-tag interest-tag"><i class="fa-solid fa-building"></i> ${l.bank}</span>` : ''}
+                                ${this.currentPersonFilter === 'All' ? `<span class="person-tag"><i class="fa-solid fa-user"></i> ${l.person}</span>` : ''}
+                            </span>
+                            <div style="display:flex; gap:8px;">
+                                <button class="fin-edit-loan btn btn-secondary" data-id="${l.id}" title="Edit Loan" style="padding:4px 8px; font-size:0.8rem; background:transparent; border-color:var(--border-light); color:var(--text-muted);"><i class="fa-solid fa-pen"></i></button>
+                                <button class="fin-del-loan btn btn-secondary" data-id="${l.id}" style="padding:4px 8px; font-size:0.8rem;"><i class="fa-solid fa-check"></i> Close Loan</button>
+                            </div>
                         </div>
                         <div class="loan-stats">
                             <div class="loan-stat"><span>Sanctioned</span><strong>${this.formatCurrency(l.amountSanctioned)}</strong></div>
@@ -228,7 +234,10 @@ export class FinanceManager {
                                 <td>${t.category}</td>
                                 <td class="fin-amount ${t.type}">${t.type === 'income' ? '+' : '-'}${this.formatCurrency(t.amount)}</td>
                                 <td>${new Date(t.date + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</td>
-                                <td><button class="fin-del" data-id="${t.id}"><i class="fa-solid fa-trash"></i></button></td>
+                                <td>
+                                    <button class="fin-edit" data-id="${t.id}" style="background:none; border:none; color:var(--text-muted); cursor:pointer; margin-right:8px;"><i class="fa-solid fa-pen"></i></button>
+                                    <button class="fin-del" data-id="${t.id}"><i class="fa-solid fa-trash"></i></button>
+                                </td>
                             </tr>
                         `).join('')}
                     </tbody>
@@ -262,6 +271,7 @@ export class FinanceManager {
         if (this.currentEntryType === 'loan') {
             formHTML = `
                 <input class="fin-form-input" id="fin-title" placeholder="Loan Title (e.g. Home Loan)" type="text">
+                <input class="fin-form-input" id="fin-bank" placeholder="Bank Name (e.g. SBI, HDFC)" type="text">
                 <input class="fin-form-input" id="fin-sanctioned" placeholder="Amount Sanctioned (₹)" type="number" min="0" step="0.01">
                 <input class="fin-form-input" id="fin-paid-already" placeholder="Amount Already Paid (₹) (Optional)" type="number" min="0" step="0.01">
                 <input class="fin-form-input" id="fin-emi" placeholder="EMI per month (₹)" type="number" min="0" step="0.01">
@@ -306,7 +316,7 @@ export class FinanceManager {
         container.innerHTML = `
             <div class="view-header">
                 <div>
-                    <h1>Finance Tracker</h1>
+                    <h1>Finance Tracker ${this.currentPersonFilter !== 'All' ? `<span style="color: var(--accent-color); font-weight: 800;">— ${this.currentPersonFilter}</span>` : ''}</h1>
                     <p class="subtitle text-muted">Audit household salaries, loans, rent, and expenses</p>
                 </div>
             </div>
@@ -469,6 +479,7 @@ export class FinanceManager {
             }
 
             if (this.currentEntryType === 'loan') {
+                const bank = document.getElementById('fin-bank').value.trim();
                 const sanctioned = parseFloat(document.getElementById('fin-sanctioned').value);
                 const paidAlready = parseFloat(document.getElementById('fin-paid-already').value) || 0;
                 const emi = parseFloat(document.getElementById('fin-emi').value) || 0;
@@ -489,6 +500,7 @@ export class FinanceManager {
                     id: 'loan_' + Date.now(),
                     title,
                     person,
+                    bank,
                     amountSanctioned: sanctioned,
                     amountLeftToPay: sanctioned - paidAlready,
                     emiPerMonth: emi,
@@ -573,6 +585,143 @@ export class FinanceManager {
                 const updatedTxns = txns.filter(t => t.id !== id);
                 this.saveTransactions(updatedTxns);
                 showToast('Transaction deleted.');
+                this.render();
+            });
+        });
+
+        // Edit Transaction
+        document.querySelectorAll('#view-finance .fin-edit').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const id = btn.dataset.id;
+                const txns = this.storage.get('transactions');
+                const txn = txns.find(t => t.id === id);
+                if (!txn) return;
+
+                const loans = this.storage.get('loans') || [];
+                const loanOptions = [{ value: '', label: '-- None --' }, ...loans.map(l => ({ value: l.id, label: l.title }))];
+                
+                const categoryOptions = [
+                    { value: 'Salary', label: '💰 Salary' },
+                    { value: 'Freelance', label: '💻 Freelance' },
+                    { value: 'Rent', label: '🏠 Rent' },
+                    { value: 'EMI', label: '💳 EMI' },
+                    { value: 'Credit Card', label: '💳 Credit Card' },
+                    { value: 'Food', label: '🍔 Food' },
+                    { value: 'Transport', label: '🚗 Transport' },
+                    { value: 'Entertainment', label: '🎬 Entertainment' },
+                    { value: 'Bills', label: '📄 Bills' },
+                    { value: 'Shopping', label: '🛍️ Shopping' },
+                    { value: 'Health', label: '🏥 Health' },
+                    { value: 'Other', label: '📦 Other' }
+                ];
+
+                const fields = [
+                    { key: 'title', label: 'Title', type: 'text', value: txn.title, required: true },
+                    { key: 'amount', label: 'Amount (₹)', type: 'number', value: txn.amount, required: true },
+                    { type: 'row', children: [
+                        { key: 'category', label: 'Category', type: 'dropdown', value: txn.category, options: categoryOptions },
+                        { key: 'date', label: 'Date', type: 'date', value: txn.date }
+                    ]},
+                    { key: 'person', label: 'Person', type: 'text', value: txn.person || 'Main' }
+                ];
+
+                if (txn.type === 'expense') {
+                    fields.push({
+                        type: 'row', children: [
+                            { key: 'interest', label: 'Interest Part (₹)', type: 'number', value: txn.interest || 0 },
+                            { key: 'linkedLoanId', label: 'Linked Loan', type: 'dropdown', value: txn.linkedLoanId || '', options: loanOptions }
+                        ]
+                    });
+                }
+
+                const result = await showFormModal({
+                    title: 'Edit Transaction',
+                    icon: 'fa-solid fa-pen',
+                    submitLabel: 'Save Changes',
+                    submitIcon: 'fa-solid fa-check',
+                    fields
+                });
+
+                if (!result) return;
+
+                // Handle EMI loan adjustment if linked loan changed or amount changed
+                if (txn.category === 'EMI' && txn.linkedLoanId) {
+                    const lIdx = loans.findIndex(l => l.id === txn.linkedLoanId);
+                    if (lIdx > -1) {
+                        const oldPrincipalPaid = txn.amount - (txn.interest || 0);
+                        loans[lIdx].amountLeftToPay += oldPrincipalPaid; // Revert old payment
+                    }
+                }
+
+                txn.title = result.title;
+                txn.amount = parseFloat(result.amount);
+                txn.category = result.category;
+                txn.date = result.date;
+                txn.person = result.person || 'Main';
+                if (txn.type === 'expense') {
+                    txn.interest = parseFloat(result.interest) || 0;
+                    txn.linkedLoanId = result.linkedLoanId || null;
+                    
+                    if (txn.category === 'EMI' && txn.linkedLoanId) {
+                        const lIdx = loans.findIndex(l => l.id === txn.linkedLoanId);
+                        if (lIdx > -1) {
+                            const newPrincipalPaid = txn.amount - txn.interest;
+                            loans[lIdx].amountLeftToPay = Math.max(0, loans[lIdx].amountLeftToPay - newPrincipalPaid);
+                        }
+                    }
+                }
+                
+                this.saveLoans(loans);
+                this.saveTransactions(txns);
+                showToast('Transaction updated.');
+                this.render();
+            });
+        });
+
+        // Edit Loan
+        document.querySelectorAll('#view-finance .fin-edit-loan').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const id = btn.dataset.id;
+                const loans = this.storage.get('loans') || [];
+                const loan = loans.find(l => l.id === id);
+                if (!loan) return;
+
+                const fields = [
+                    { type: 'row', children: [
+                        { key: 'title', label: 'Loan Title', type: 'text', value: loan.title, required: true },
+                        { key: 'bank', label: 'Bank Name', type: 'text', value: loan.bank || '' }
+                    ]},
+                    { key: 'person', label: 'Person', type: 'text', value: loan.person },
+                    { type: 'row', children: [
+                        { key: 'amountSanctioned', label: 'Sanctioned Amount (₹)', type: 'number', value: loan.amountSanctioned, required: true },
+                        { key: 'amountLeftToPay', label: 'Left to Pay (₹)', type: 'number', value: loan.amountLeftToPay, required: true }
+                    ]},
+                    { type: 'row', children: [
+                        { key: 'emiPerMonth', label: 'EMI per month (₹)', type: 'number', value: loan.emiPerMonth },
+                        { key: 'interestRate', label: 'Interest Rate (%)', type: 'number', value: loan.interestRate }
+                    ]}
+                ];
+
+                const result = await showFormModal({
+                    title: 'Edit Loan',
+                    icon: 'fa-solid fa-building-columns',
+                    submitLabel: 'Save Changes',
+                    submitIcon: 'fa-solid fa-check',
+                    fields
+                });
+
+                if (!result) return;
+
+                loan.title = result.title;
+                loan.bank = result.bank || '';
+                loan.person = result.person || 'Main';
+                loan.amountSanctioned = parseFloat(result.amountSanctioned);
+                loan.amountLeftToPay = parseFloat(result.amountLeftToPay);
+                loan.emiPerMonth = parseFloat(result.emiPerMonth) || 0;
+                loan.interestRate = parseFloat(result.interestRate) || 0;
+
+                this.saveLoans(loans);
+                showToast('Loan updated.');
                 this.render();
             });
         });

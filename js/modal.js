@@ -177,6 +177,19 @@ export function showFormModal(opts) {
                 });
                 wrapper.appendChild(group);
                 fieldEls[f.key] = group;
+            } else if (f.type === 'dropdown') {
+                wrapper.innerHTML = `<label>${f.label}</label>`;
+                const select = document.createElement('select');
+                select.className = 'gm-input';
+                (f.options || []).forEach(opt => {
+                    const option = document.createElement('option');
+                    option.value = opt.value;
+                    option.textContent = opt.label;
+                    if (opt.value === f.value) option.selected = true;
+                    select.appendChild(option);
+                });
+                wrapper.appendChild(select);
+                fieldEls[f.key] = select;
             } else if (f.type === 'color') {
                 wrapper.innerHTML = `<label>${f.label}</label>`;
                 const group = document.createElement('div');
@@ -284,7 +297,7 @@ function buildInput(f) {
 
 function getFieldValue(el, f) {
     if (!el) return '';
-    if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
+    if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT') {
         if (f.type === 'number') return el.value ? parseFloat(el.value) : '';
         return el.value.trim();
     }
