@@ -181,9 +181,20 @@ function initApp() {
     });
 
     // Sidebar toggler desktop
-    document.getElementById('sidebar-toggle')?.addEventListener('click', () => {
-        document.getElementById('sidebar')?.classList.toggle('collapsed');
-    });
+    const sidebarToggleBtn = document.getElementById('sidebar-toggle');
+    const sidebarEl = document.getElementById('sidebar');
+
+    if (sidebarToggleBtn && sidebarEl) {
+        if (localStorage.getItem('prodos_sidebar_collapsed') === 'true' && window.innerWidth > 768) {
+            sidebarEl.classList.add('collapsed');
+        }
+
+        sidebarToggleBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const isCollapsed = sidebarEl.classList.toggle('collapsed');
+            localStorage.setItem('prodos_sidebar_collapsed', isCollapsed ? 'true' : 'false');
+        });
+    }
 
     // Mobile hamburger menu
     const mobileToggle = document.getElementById('mobile-menu-toggle');
