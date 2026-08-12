@@ -10,6 +10,19 @@
     <meta name="theme-color" content="#ffffff">
     <link rel="manifest" href="manifest.json">
     
+    <!-- Firebase Configuration -->
+    <script>
+        window.FIREBASE_CONFIG = {
+            apiKey: "AIzaSyDA-4suRoaHxvMmr8jnja6BpzcuqHE-_PM",
+            authDomain: "productivity-os-ac9a9.firebaseapp.com",
+            projectId: "productivity-os-ac9a9",
+            storageBucket: "productivity-os-ac9a9.firebasestorage.app",
+            messagingSenderId: "223570495872",
+            appId: "1:223570495872:web:52adea0e34359b7503d965"
+        };
+    </script>
+
+    
     <!-- Fonts: Inter -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -36,12 +49,27 @@
     <link rel="stylesheet" href="css/responsive.css?v=2">
 </head>
 <body data-theme="system">
+    <!-- Auth Hydration Loading Screen -->
+    <div id="auth-loading-screen" style="display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: var(--bg-primary); z-index: 10001; align-items: center; justify-content: center; flex-direction: column;">
+        <i class="fa-solid fa-layer-group fa-spin" style="font-size: 2.5rem; color: var(--accent-color); margin-bottom: 16px;"></i>
+        <p style="font-weight: 500; color: var(--text-secondary);">Hydrating session...</p>
+    </div>
+
     <!-- Auth Overlay -->
-    <div id="auth-overlay" style="display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: var(--bg-primary); z-index: 10000; align-items: center; justify-content: center; flex-direction: column;">
-        <h1 style="margin-bottom: 20px;">Welcome to ProductivityOS</h1>
-        <p style="margin-bottom: 40px; color: var(--text-muted);">Please sign in to access your dashboard.</p>
-        <button id="auth-login-btn" class="btn btn-primary" style="font-size: 1.2rem; padding: 15px 30px;"><i class="fa-brands fa-google"></i> Sign in with Google</button>
-        <p style="margin-top: 20px; font-size: 0.8rem; color: var(--text-muted);">You need to add Firebase credentials to js/auth.js for this to work.</p>
+    <div id="auth-overlay" style="display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: var(--bg-primary); z-index: 10000; align-items: center; justify-content: center; flex-direction: column; text-align: center; padding: 20px;">
+        <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 40px 32px; max-width: 440px; width: 100%; box-shadow: var(--shadow-lg);">
+            <div style="width: 56px; height: 56px; background: var(--accent-light); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px;">
+                <i class="fa-solid fa-layer-group" style="font-size: 1.8rem; color: var(--accent-color);"></i>
+            </div>
+            <h1 style="font-size: 1.5rem; font-weight: 700; margin-bottom: 8px;">ProductivityOS Pro</h1>
+            <p style="margin-bottom: 28px; color: var(--text-muted); font-size: 0.92rem; line-height: 1.5;">Sign in with your Google account to access your synchronized personal & family workspace.</p>
+            <button id="auth-login-btn" class="btn btn-primary" style="font-size: 1.05rem; padding: 14px 24px; width: 100%; justify-content: center; gap: 10px;">
+                <i class="fa-brands fa-google" style="font-size: 1.2rem;"></i> Sign in with Google
+            </button>
+            <p style="margin-top: 20px; font-size: 0.78rem; color: var(--text-muted);">
+                <i class="fa-solid fa-shield-halved"></i> Secure Google Identity Authentication.
+            </p>
+        </div>
     </div>
 
     <!-- Sidebar Navigation -->
@@ -102,6 +130,9 @@
         </nav>
 
         <div class="sidebar-footer">
+            <a href="#profile" class="nav-item" data-view="profile">
+                <i class="fa-solid fa-circle-user"></i> <span class="nav-text">Profile & Family</span>
+            </a>
             <a href="#analytics" class="nav-item" data-view="analytics">
                 <i class="fa-solid fa-chart-line"></i> <span class="nav-text">Analytics</span>
             </a>
@@ -128,7 +159,10 @@
                 <button id="notifications-btn" class="icon-btn tooltip" aria-label="Notifications" data-tooltip="Alerts">
                     <i class="fa-regular fa-bell"></i>
                 </button>
-                <div class="user-avatar">OS</div>
+                <a href="#profile" id="topbar-user-profile-btn" style="display:flex; align-items:center; gap:10px; cursor:pointer; text-decoration:none; padding:4px 8px; border-radius:var(--radius-sm); transition:background var(--transition-fast);" title="Manage User Profile & Family Accounts">
+                    <span class="user-display-name" style="font-weight: 600; font-size: 0.9rem; color: var(--text-primary);"></span>
+                    <div class="user-avatar">OS</div>
+                </a>
             </div>
         </header>
 
@@ -144,7 +178,6 @@
                     </div>
                     <div class="topbar-actions">
                         <button class="btn btn-secondary" id="export-excel-btn"><i class="fa-solid fa-file-excel" style="color: #4CAF50;"></i> Export Data</button>
-                        <button class="btn btn-secondary" id="auth-logout-btn"><i class="fa-solid fa-sign-out-alt"></i> Logout</button>
                         <button class="btn btn-primary" id="btn-quick-add"><i class="fa-solid fa-plus"></i> Quick Add</button>
                     </div>
                 </div>
@@ -291,6 +324,16 @@
                 </div>
             </section>
             
+            <!-- Profile View -->
+            <section id="view-profile" class="view">
+                <div id="profile-view-container"></div>
+            </section>
+
+            <!-- Family Hub View -->
+            <section id="view-family" class="view">
+                <div id="family-view-container"></div>
+            </section>
+
             <!-- Placeholders for remaining views -->
             <section id="view-projects" class="view"><div class="view-header"><h1>Projects</h1></div><div class="card"><div class="card-body">Project Architecture Interface Loading...</div></div></section>
             <section id="view-goals" class="view"><div class="view-header"><h1>Goals (OKRs)</h1></div><div class="card"><div class="card-body">Goals Interface Loading...</div></div></section>
@@ -313,9 +356,6 @@
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
 
     <!-- Application Logic (ES Modules) -->
-    <script type="module" src="js/main.js?v=30"></script>
-    <script type="module" src="js/auth.js?v=21"></script>
-    <script type="module" src="js/export.js?v=20"></script>
-    <script type="module" src="js/storage.js?v=23"></script>
+    <script type="module" src="js/main.js"></script>
 </body>
 </html>

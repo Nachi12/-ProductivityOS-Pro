@@ -1,47 +1,64 @@
 // js/router.js
 export class Router {
     constructor() {
-        this.views = document.querySelectorAll('.view');
-        this.navItems = document.querySelectorAll('.nav-item[data-view]');
         this.bindEvents();
         this.init();
     }
 
     init() {
-        // Simple hash routing
-        const hash = window.location.hash.replace('#', '') || 'dashboard';
-        this.navigateTo(hash);
+        const rawHash = window.location.hash.replace('#', '') || 'dashboard';
+        const baseView = rawHash.split('?')[0];
+        this.navigateTo(baseView || 'dashboard');
     }
 
     bindEvents() {
-        this.navItems.forEach(item => {
-            item.addEventListener('click', (e) => {
-                const viewId = e.currentTarget.getAttribute('data-view');
+        // Event delegation on document so static and dynamic links work 100% reliably
+        document.addEventListener('click', (e) => {
+            const navItem = e.target.closest('.nav-item[data-view]');
+            if (navItem) {
+                const viewId = navItem.getAttribute('data-view');
                 if (viewId) {
                     this.navigateTo(viewId);
                 }
-            });
+            }
         });
 
         window.addEventListener('hashchange', () => {
-            const hash = window.location.hash.replace('#', '') || 'dashboard';
-            this.navigateTo(hash);
+            const rawHash = window.location.hash.replace('#', '') || 'dashboard';
+            const baseView = rawHash.split('?')[0];
+            this.navigateTo(baseView || 'dashboard');
         });
     }
 
     navigateTo(viewId) {
-        // Hide all
-        this.views.forEach(v => v.classList.remove('active'));
-        this.navItems.forEach(n => n.classList.remove('active'));
+        const views = document.querySelectorAll('.view');
+        const navItems = document.querySelectorAll('.nav-item[data-view]');
 
-        // Show target
+        views.forEach(v => v.classList.remove('active'));
+        navItems.forEach(n => n.classList.remove('active'));
+
         const targetView = document.getElementById(`view-${viewId}`);
-        const targetNav = document.querySelector(`.nav-item[data-view="${viewId}"]`);
+        const targetNavs = document.querySelectorAll(`.nav-item[data-view="${viewId}"]`);
 
-        if (targetView) targetView.classList.add('active');
-        if (targetNav) targetNav.classList.add('active');
-        
-        // Dispatch custom event so modules can re-render if needed
+        if (targetView) {
+            targetView.classList.add('active');
+        } else {
+            const dashView = document.getElementById('view-dashboard');
+            if (dashView) dashView.classList.add('active');
+        }
+
+        targetNavs.forEach(n => n.classList.add('active'));
+
+        const currentHash = window.location.hash.replace('#', '').split('?')[0];
+        if (currentHash !== viewId) {
+            try {
+                window.history.pushState(null, '', `#${viewId}`);
+            } catch (e) {
+                window.location.hash = viewId;
+            }
+        }
+
+        // Dispatch custom event to notify view module to render
         document.dispatchEvent(new CustomEvent('viewChanged', { detail: viewId }));
     }
 }

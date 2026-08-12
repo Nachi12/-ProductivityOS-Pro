@@ -9,8 +9,8 @@ function injectStyles() {
     style.id = 'global-modal-styles';
     style.textContent = `
         .gm-overlay {
-            position: fixed; inset: 0; background: rgba(0,0,0,0.45);
-            backdrop-filter: blur(4px); z-index: 2000;
+            position: fixed; inset: 0; background: rgba(0,0,0,0.75);
+            backdrop-filter: blur(8px); z-index: 20000;
             display: flex; align-items: center; justify-content: center;
             animation: gmFadeIn 0.2s ease;
         }
@@ -333,3 +333,28 @@ export function showConfirmModal(message, opts = {}) {
         footer.querySelector('.gm-confirm-btn').addEventListener('click', () => { close(); resolve(true); });
     });
 }
+
+/**
+ * showCustomModal — mount custom HTML with onMount callback for interactive elements
+ */
+export function showCustomModal(opts = {}) {
+    return new Promise((resolve) => {
+        const { overlay, body, footer, close } = createShell(opts.title || 'Notice', opts.icon || 'fa-solid fa-info-circle');
+        body.innerHTML = opts.bodyHtml || '';
+
+        footer.innerHTML = `
+            <button class="btn btn-primary gm-done-btn">${opts.closeLabel || 'Done'}</button>
+        `;
+
+        footer.querySelector('.gm-done-btn').addEventListener('click', () => { close(); resolve(true); });
+
+        if (typeof opts.onMount === 'function') {
+            opts.onMount(body, close);
+        }
+    });
+}
+
+// Fail-safe re-export of showToast
+export { showToast } from './toast.js';
+
+

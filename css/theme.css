@@ -1,3 +1,35 @@
+/* Dark & Light Theme System */
+
+/* Light Theme Variables */
+[data-theme="light"] {
+    --bg-main: #F4F6F9;
+    --bg-sidebar: #FFFFFF;
+    --bg-card: #FFFFFF;
+    --bg-hover: rgba(0, 0, 0, 0.05);
+    --bg-input: #EFEFF4;
+    
+    --text-primary: #1A1D20;
+    --text-secondary: #5F6368;
+    --text-muted: #80868B;
+    
+    --border-color: rgba(0, 0, 0, 0.12);
+    --border-light: rgba(0, 0, 0, 0.06);
+    
+    --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+    --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
+    
+    --accent-color: #2383E2;
+    --accent-hover: #1b6bbd; 
+    --accent-light: rgba(35, 131, 226, 0.12);
+    --accent-text: #FFFFFF;
+}
+
+body[data-theme="light"] {
+    background: #F4F6F9 !important;
+    color: var(--text-primary) !important;
+}
+
 /* Dark Theme - Glassmorphism */
 [data-theme="dark"] {
     --bg-main: #0F0F0F; /* Pilo Black */
@@ -20,11 +52,12 @@
     --accent-color: #C7FF2E; /* Electric Green */
     --accent-hover: #b1e626; 
     --accent-light: rgba(199, 255, 46, 0.15);
+    --accent-text: #0F0F0F;
 }
 
 body[data-theme="dark"] {
     background: radial-gradient(circle at 15% 50%, rgba(199, 255, 46, 0.08) 0%, transparent 50%),
                 radial-gradient(circle at 85% 30%, rgba(199, 255, 46, 0.05) 0%, transparent 50%),
-                var(--bg-main);
-    background-attachment: fixed;
+                var(--bg-main) !important;
+    background-attachment: fixed !important;
 }
