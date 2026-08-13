@@ -197,18 +197,19 @@ export class FinanceManager {
         let loans = allLoans;
         
         if (this.currentPersonFilter !== 'All') {
-            txns = allTxns.filter(t => t.person === this.currentPersonFilter);
-            loans = allLoans.filter(l => l.person === this.currentPersonFilter);
+            const targetFilter = this.currentPersonFilter.toLowerCase();
+            txns = allTxns.filter(t => t.person && t.person.toLowerCase() === targetFilter);
+            loans = allLoans.filter(l => l.person && l.person.toLowerCase() === targetFilter);
         } else if (persons.length === 0) {
-            // When no custom members exist, filter out orphan statement transactions from deleted members
-            txns = allTxns.filter(t => t.person && t.person !== 'Main');
-            loans = allLoans.filter(l => l.person && l.person !== 'Main');
+            // When no custom members exist, reset transaction calculation to zero
+            txns = [];
+            loans = [];
         }
 
-        const income = txns.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
-        const expenses = txns.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+        const income = txns.filter(t => t.type === 'income').reduce((s, t) => s + (parseFloat(t.amount) || 0), 0);
+        const expenses = txns.filter(t => t.type === 'expense' || !t.type).reduce((s, t) => s + (parseFloat(t.amount) || 0), 0);
         const balance = income - expenses;
-        const totalDebt = loans.reduce((s, l) => s + l.amountLeftToPay, 0);
+        const totalDebt = loans.reduce((s, l) => s + (parseFloat(l.amountLeftToPay) || 0), 0);
         const totalMonthlyEMI = loans.reduce((s, l) => s + (parseFloat(l.emiPerMonth) || 0), 0);
         const totalInterest = txns.reduce((s, t) => s + (parseFloat(t.interest) || 0), 0);
 

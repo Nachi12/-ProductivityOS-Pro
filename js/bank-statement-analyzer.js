@@ -568,20 +568,36 @@ export class BankStatementAnalyzer {
                 }
             }
 
-            // Save to database/storage
+            // Save to database/storage with strict deduplication
             const dbTxns = this.storage.get('transactions') || [];
+            let addedCount = 0;
+
             selected.forEach(t => {
-                dbTxns.push({
-                    id: 'txn_imp_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
-                    title: t.description,
-                    amount: t.amount,
-                    category: t.category,
-                    date: t.date,
-                    type: t.type,
-                    person: targetPerson,
-                    reference: t.reference,
-                    sourceStatementId: stmt.id
+                const numAmt = parseFloat(t.amount) || 0;
+                if (numAmt <= 0) return;
+
+                const isDup = dbTxns.some(ex => {
+                    const sameDate = ex.date === t.date;
+                    const sameAmt = Math.abs((parseFloat(ex.amount) || 0) - numAmt) < 0.01;
+                    const samePerson = (ex.person || '').toLowerCase() === targetPerson.toLowerCase();
+                    const sameTitle = ex.title && t.description && (ex.title.toLowerCase() === t.description.toLowerCase());
+                    return sameDate && sameAmt && samePerson && sameTitle;
                 });
+
+                if (!isDup) {
+                    addedCount++;
+                    dbTxns.push({
+                        id: 'txn_imp_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
+                        title: t.description,
+                        amount: numAmt,
+                        category: t.category,
+                        date: t.date,
+                        type: t.type,
+                        person: targetPerson,
+                        reference: t.reference || '',
+                        sourceStatementId: stmt.id
+                    });
+                }
             });
             this.storage.set('transactions', dbTxns);
 
