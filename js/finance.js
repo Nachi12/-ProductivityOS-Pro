@@ -584,7 +584,7 @@ export class FinanceManager {
         `;
 
         if (this.currentViewMode === 'analyzer') {
-            this.bsa.init(document.getElementById('fin-statement-analyzer-container'));
+            this.bsa.init(document.getElementById('fin-statement-analyzer-container'), this.currentPersonFilter);
         }
 
         // Sidebar Person Filter Buttons
@@ -698,13 +698,13 @@ export class FinanceManager {
                     }
                 } catch(e) {}
 
-                // 4. Clear person tag from transactions & loans
+                // 4. Erase all transactions and loans belonging to this person
                 let txns = this.storage.get('transactions') || [];
-                txns = txns.map(t => t.person === person ? { ...t, person: '' } : t);
+                txns = txns.filter(t => !t.person || t.person.toLowerCase() !== person.toLowerCase());
                 this.storage.set('transactions', txns);
 
                 let loans = this.storage.get('loans') || [];
-                loans = loans.map(l => l.person === person ? { ...l, person: '' } : l);
+                loans = loans.filter(l => !l.person || l.person.toLowerCase() !== person.toLowerCase());
                 this.storage.set('loans', loans);
 
                 // Reset filter if active

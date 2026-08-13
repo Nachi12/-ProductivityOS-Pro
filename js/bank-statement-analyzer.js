@@ -15,9 +15,10 @@ export class BankStatementAnalyzer {
         this.chartInstance = null;
     }
 
-    init(container) {
+    init(container, activePerson = '') {
         if (!container) return;
         this.container = container;
+        this.activePerson = (activePerson && activePerson !== 'All') ? activePerson : '';
         this.injectStyles();
         this.render();
     }
@@ -271,6 +272,21 @@ export class BankStatementAnalyzer {
         }
     }
 
+    getAvailablePersons() {
+        const customPersons = this.storage.get('custom_persons') || [];
+        const deletedPersons = this.storage.get('deleted_persons') || [];
+        let familyMembers = [];
+        try {
+            const familyData = JSON.parse(localStorage.getItem('prodos_family_data'));
+            if (familyData && Array.isArray(familyData.members)) {
+                familyMembers = familyData.members.map(m => m.name);
+            }
+        } catch (e) {}
+
+        const set = new Set([...familyMembers, ...customPersons]);
+        return Array.from(set).filter(p => p && p.trim() !== '' && !deletedPersons.includes(p));
+    }
+
     /**
      * Render Step 2: Review Before Import Screen
      */
@@ -290,6 +306,7 @@ export class BankStatementAnalyzer {
         }
 
         const selectedCount = stmt.transactions.filter(t => t.selectedForImport).length;
+        const availablePersons = this.getAvailablePersons();
 
         this.container.innerHTML = `
             <div class="bsa-container">
@@ -340,7 +357,14 @@ export class BankStatementAnalyzer {
                         </div>
                     </div>
 
-                    <div>
+                    <div style="display:flex; align-items:center; gap:12px;">
+                        <div style="display:flex; align-items:center; gap:6px;">
+                            <label style="font-size:0.8rem; font-weight:700; color:var(--text-muted);">Assign:</label>
+                            <select id="bsa-assign-person-select" class="an-select" style="padding:4px 8px; font-size:0.8rem;">
+                                <option value="">Shared</option>
+                                ${availablePersons.map(p => `<option value="${p}">${p}</option>`).join('')}
+                            </select>
+                        </div>
                         <button class="btn btn-primary" id="bsa-btn-confirm-import" style="padding:8px 20px;"><i class="fa-solid fa-check-double"></i> Import ${selectedCount} Selected Transactions</button>
                     </div>
                 </div>
@@ -476,6 +500,8 @@ export class BankStatementAnalyzer {
                 return;
             }
 
+            const targetPerson = document.getElementById('bsa-assign-person-select')?.value || '';
+
             // Save to database/storage
             const dbTxns = this.storage.get('transactions') || [];
             selected.forEach(t => {
@@ -486,6 +512,7 @@ export class BankStatementAnalyzer {
                     category: t.category,
                     date: t.date,
                     type: t.type,
+                    person: targetPerson,
                     reference: t.reference,
                     sourceStatementId: stmt.id
                 });

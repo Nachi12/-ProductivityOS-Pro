@@ -820,10 +820,14 @@ export class FamilyManager {
                 customPersons = customPersons.filter(p => p !== memberName);
                 localStorage.setItem('custom_persons', JSON.stringify(customPersons));
 
-                // 2. Clear person tag from transactions
+                // 2. Erase all transactions and loans of this member
                 let txns = JSON.parse(localStorage.getItem('transactions') || '[]');
-                txns = txns.map(t => t.person === memberName ? { ...t, person: '' } : t);
+                txns = txns.filter(t => !t.person || t.person.toLowerCase() !== memberName.toLowerCase());
                 localStorage.setItem('transactions', JSON.stringify(txns));
+
+                let loans = JSON.parse(localStorage.getItem('loans') || '[]');
+                loans = loans.filter(l => !l.person || l.person.toLowerCase() !== memberName.toLowerCase());
+                localStorage.setItem('loans', JSON.stringify(loans));
             } catch(e) {}
 
             showToast(`Removed ${member.name} from family workspace.`, "info");
