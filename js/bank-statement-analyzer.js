@@ -215,12 +215,18 @@ export class BankStatementAnalyzer {
         document.querySelectorAll('.bsa-del-stmt').forEach(btn => {
             btn.addEventListener('click', async () => {
                 const id = btn.dataset.id;
-                const ok = await showConfirmModal('Delete this analyzed statement record?', { danger: true });
+                const ok = await showConfirmModal('Delete this analyzed statement record and ERASE all its imported transactions?', { danger: true });
                 if (ok) {
                     let statements = this.storage.get('bank_statements') || [];
                     statements = statements.filter(s => s.id !== id);
                     this.storage.set('bank_statements', statements);
-                    showToast('Statement record deleted.');
+
+                    // Erase all transactions imported from this statement file
+                    let dbTxns = this.storage.get('transactions') || [];
+                    dbTxns = dbTxns.filter(t => t.sourceStatementId !== id);
+                    this.storage.set('transactions', dbTxns);
+
+                    showToast('Statement file and all its imported transactions were completely erased!', 'info');
                     this.render();
                 }
             });
@@ -665,6 +671,7 @@ export class BankStatementAnalyzer {
                         </div>
                         <div style="display:flex; gap:8px;">
                             <button class="btn btn-secondary" id="bsa-an-back"><i class="fa-solid fa-arrow-left"></i> Back to Analyzer</button>
+                            <button class="btn btn-secondary" id="bsa-an-delete" style="background:rgba(229,57,53,0.12); color:var(--clr-red); border:1px solid var(--clr-red); font-size:0.83rem;"><i class="fa-solid fa-trash"></i> Delete Statement & Data</button>
                         </div>
                     </div>
                 </div>
@@ -766,6 +773,25 @@ export class BankStatementAnalyzer {
         document.getElementById('bsa-an-back')?.addEventListener('click', () => {
             this.activeStep = 'upload';
             this.render();
+        });
+
+        document.getElementById('bsa-an-delete')?.addEventListener('click', async () => {
+            const ok = await showConfirmModal(`Delete analyzed statement "${stmt.fileName}" and ERASE all its imported transactions?`, { danger: true });
+            if (ok) {
+                // Delete statement record
+                let statements = this.storage.get('bank_statements') || [];
+                statements = statements.filter(s => s.id !== stmt.id);
+                this.storage.set('bank_statements', statements);
+
+                // Erase all transactions imported from this statement file
+                let dbTxns = this.storage.get('transactions') || [];
+                dbTxns = dbTxns.filter(t => t.sourceStatementId !== stmt.id);
+                this.storage.set('transactions', dbTxns);
+
+                showToast('Statement document and all its imported transactions were completely erased!', 'info');
+                this.activeStep = 'upload';
+                this.render();
+            }
         });
 
         // Aggregate transactions by unique date for clean chart

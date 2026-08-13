@@ -65,8 +65,10 @@ export class FinanceManager {
             ...loans.map(l => l.person).filter(p => p && p !== 'Main')
         ]);
 
+        const deletedLower = deletedPersons.map(d => String(d).toLowerCase().trim());
+
         return Array.from(persons)
-            .filter(p => p && p !== 'Main' && p.trim() !== '' && !deletedPersons.includes(p))
+            .filter(p => p && p !== 'Main' && p.trim() !== '' && !deletedLower.includes(String(p).toLowerCase().trim()))
             .sort((a, b) => a.localeCompare(b));
     }
 
@@ -222,8 +224,8 @@ export class FinanceManager {
             'Credit Card': '#ab47bc', 'Other': '#78909c'
         };
         txns.forEach(t => {
-            if (t.type === 'expense') {
-                categories[t.category] = (categories[t.category] || 0) + t.amount;
+            if (t.type === 'expense' || !t.type) {
+                categories[t.category || 'Other'] = (categories[t.category || 'Other'] || 0) + (parseFloat(t.amount) || 0);
             }
         });
         
