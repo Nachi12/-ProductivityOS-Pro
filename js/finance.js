@@ -79,6 +79,16 @@ export class FinanceManager {
             .fin-container { display: grid; grid-template-columns: 240px 1fr; gap: var(--spacing-5); height: 100%; align-items: start; }
             .fin-sidebar { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: var(--spacing-4); }
             .fin-sidebar h3 { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: var(--spacing-3); font-weight: 700; }
+            .fin-person-item { display: flex; align-items: center; justify-content: space-between; border-radius: var(--radius-md); margin-bottom: 4px; position: relative; transition: background 0.2s ease; }
+            .fin-person-item:hover { background: var(--bg-hover); }
+            .fin-person-item.active { background: var(--accent-light); }
+            .fin-person-item .fin-person-btn { flex: 1; margin-bottom: 0; }
+            .fin-person-actions { display: flex; gap: 2px; padding-right: 6px; opacity: 0.8; transition: opacity 0.2s ease; }
+            .fin-person-item:hover .fin-person-actions { opacity: 1; }
+            .fin-person-act-btn { background: transparent; border: none; color: var(--text-muted); font-size: 0.78rem; padding: 4px 6px; border-radius: 4px; cursor: pointer; transition: color 0.2s ease, background 0.2s ease; }
+            .fin-person-act-btn:hover { color: var(--text-primary); background: rgba(255,255,255,0.12); }
+            .fin-person-act-btn.fin-person-del:hover { color: var(--clr-red); background: rgba(229,57,53,0.18); }
+
             .fin-person-btn { display: flex; align-items: center; gap: var(--spacing-3); width: 100%; padding: 10px 14px; background: none; border: none; text-align: left; color: var(--text-secondary); border-radius: var(--radius-md); cursor: pointer; transition: all var(--transition-fast); margin-bottom: 4px; font-size: 0.9rem; font-weight: 500; }
             .fin-person-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
             .fin-person-btn.active { background: var(--accent-light); color: var(--accent-color); font-weight: 600; }
@@ -387,9 +397,19 @@ export class FinanceManager {
                         <i class="fa-solid fa-users"></i> All Members
                     </button>
                     ${persons.map(p => `
-                        <button class="fin-person-btn ${this.currentPersonFilter === p ? 'active' : ''}" data-person="${p}">
-                            <i class="fa-solid fa-user"></i> ${p}
-                        </button>
+                        <div class="fin-person-item ${this.currentPersonFilter === p ? 'active' : ''}">
+                            <button class="fin-person-btn ${this.currentPersonFilter === p ? 'active' : ''}" data-person="${p}">
+                                <i class="fa-solid fa-user"></i> ${p}
+                            </button>
+                            <div class="fin-person-actions">
+                                <button class="fin-person-act-btn fin-person-edit" data-person="${p}" title="Edit / Rename Person">
+                                    <i class="fa-solid fa-pen"></i>
+                                </button>
+                                <button class="fin-person-act-btn fin-person-del" data-person="${p}" title="Remove Person">
+                                    <i class="fa-solid fa-trash"></i>
+                                </button>
+                            </div>
+                        </div>
                     `).join('')}
                     
                     <div style="border-top: 1px solid var(--border-color); margin-top: var(--spacing-3); padding-top: var(--spacing-2);">
@@ -573,6 +593,109 @@ export class FinanceManager {
                     sessionStorage.setItem('prodos_active_family_member', person);
                     this.render();
                 }
+            });
+        });
+
+        // Edit Person Name handler
+        document.querySelectorAll('.fin-person-edit').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                const person = e.currentTarget.dataset.person;
+                if (!person) return;
+
+                const result = await showFormModal({
+                    title: `Rename ${person}`,
+                    icon: 'fa-solid fa-user-pen',
+                    submitLabel: 'Save Name',
+                    fields: [
+                        { key: 'name', label: 'Person / Member Name', type: 'text', value: person, required: true }
+                    ]
+                });
+
+                if (result && result.name.trim() && result.name.trim() !== person) {
+                    const newName = result.name.trim();
+
+                    // 1. Update custom_persons storage
+                    let customPersons = this.storage.get('custom_persons') || [];
+                    const idx = customPersons.indexOf(person);
+                    if (idx !== -1) customPersons[idx] = newName;
+                    else customPersons.push(newName);
+                    this.storage.set('custom_persons', customPersons);
+
+                    // 2. Update familyData members
+                    try {
+                        let familyData = JSON.parse(localStorage.getItem('prodos_family_data')) || { members: [] };
+                        if (familyData.members) {
+                            const mem = familyData.members.find(m => m.name.toLowerCase() === person.toLowerCase());
+                            if (mem) mem.name = newName;
+                            localStorage.setItem('prodos_family_data', JSON.stringify(familyData));
+                        }
+                    } catch(e) {}
+
+                    // 3. Update existing transactions with this person name
+                    let txns = this.storage.get('transactions') || [];
+                    txns = txns.map(t => {
+                        if (t.person === person) return { ...t, person: newName };
+                        return t;
+                    });
+                    this.storage.set('transactions', txns);
+
+                    // 4. Update active filter if was selected
+                    if (this.currentPersonFilter === person) {
+                        this.currentPersonFilter = newName;
+                        sessionStorage.setItem('prodos_active_family_member', newName);
+                    }
+
+                    showToast(`Renamed ${person} to ${newName}!`, 'success');
+                    this.render();
+                }
+            });
+        });
+
+        // Delete Person handler
+        document.querySelectorAll('.fin-person-del').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                const person = e.currentTarget.dataset.person;
+                if (!person) return;
+
+                const confirmed = await showConfirmModal(`
+                    <div style="text-align:left;">
+                        <h3 style="margin-bottom:8px; text-align:center; color:var(--clr-red);">Remove Person / Member?</h3>
+                        <p style="font-size:0.95rem; color:var(--text-primary); margin-bottom:12px;">
+                            Are you sure you want to remove <strong>${person}</strong> from your family filter list?
+                        </p>
+                    </div>
+                `, {
+                    title: `Remove ${person}`,
+                    confirmLabel: 'Remove Person',
+                    danger: true
+                });
+
+                if (!confirmed) return;
+
+                // 1. Remove from custom_persons
+                let customPersons = this.storage.get('custom_persons') || [];
+                customPersons = customPersons.filter(p => p !== person);
+                this.storage.set('custom_persons', customPersons);
+
+                // 2. Remove from familyData members
+                try {
+                    let familyData = JSON.parse(localStorage.getItem('prodos_family_data')) || { members: [] };
+                    if (familyData.members) {
+                        familyData.members = familyData.members.filter(m => m.name.toLowerCase() !== person.toLowerCase());
+                        localStorage.setItem('prodos_family_data', JSON.stringify(familyData));
+                    }
+                } catch(e) {}
+
+                // Reset filter if active
+                if (this.currentPersonFilter === person) {
+                    this.currentPersonFilter = 'All';
+                    sessionStorage.setItem('prodos_active_family_member', 'All');
+                }
+
+                showToast(`Removed ${person}.`, 'info');
+                this.render();
             });
         });
 
