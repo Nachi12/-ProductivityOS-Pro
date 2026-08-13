@@ -315,9 +315,19 @@ export class BankStatementAnalyzer {
                     <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
                         <div>
                             <h2 style="font-size:1.2rem; font-weight:700; margin-bottom:2px;"><i class="fa-solid fa-file-signature" style="color:var(--accent-color)"></i> Statement Review & Import</h2>
-                            <p style="font-size:0.83rem; color:var(--text-muted); margin:0;">${stmt.bankName} • ${stmt.fileName} (${stmt.startDate} to ${stmt.endDate})</p>
+                            <p style="font-size:0.83rem; color:var(--text-muted); margin:0;">${stmt.fileName} (${stmt.startDate} to ${stmt.endDate})</p>
                         </div>
-                        <button class="btn btn-secondary" id="bsa-btn-back"><i class="fa-solid fa-arrow-left"></i> Upload Another</button>
+                        <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                            <div style="display:flex; align-items:center; gap:6px;">
+                                <label style="font-size:0.83rem; font-weight:700; color:var(--text-muted);"><i class="fa-solid fa-building-columns" style="color:var(--accent-color)"></i> Bank Name:</label>
+                                <select id="bsa-bank-name-select" class="an-select" style="padding:6px 12px; font-size:0.85rem; font-weight:600; min-width:160px; border:1px solid var(--border-color);">
+                                    ${['Canara Bank', 'HDFC Bank', 'State Bank of India (SBI)', 'ICICI Bank', 'Axis Bank', 'Kotak Mahindra Bank', 'YES Bank', 'Punjab National Bank', 'Bank of Baroda', 'Union Bank of India', 'Paytm Payments Bank', 'Other Bank'].map(b => `
+                                        <option value="${b}" ${stmt.bankName === b ? 'selected' : ''}>${b}</option>
+                                    `).join('')}
+                                </select>
+                            </div>
+                            <button class="btn btn-secondary" id="bsa-btn-back"><i class="fa-solid fa-arrow-left"></i> Upload Another</button>
+                        </div>
                     </div>
                 </div>
 
@@ -437,6 +447,11 @@ export class BankStatementAnalyzer {
         document.getElementById('bsa-btn-back')?.addEventListener('click', () => {
             this.activeStep = 'upload';
             this.render();
+        });
+
+        // Handle Bank Name change
+        document.getElementById('bsa-bank-name-select')?.addEventListener('change', (e) => {
+            stmt.bankName = e.target.value;
         });
 
         // Handle dropdown new member creation

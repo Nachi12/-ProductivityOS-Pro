@@ -427,21 +427,37 @@ export class StatementParser {
     }
 
     /**
-     * Detect Bank Name from text content
+     * Detect Bank Name intelligently from header text content and IFSC codes
      */
     static detectBankName(text = "", fileName = "") {
-        const str = (text + " " + fileName).toUpperCase();
-        if (str.includes("HDFC")) return "HDFC Bank";
-        if (str.includes("STATE BANK OF INDIA") || str.includes("SBI")) return "State Bank of India (SBI)";
-        if (str.includes("ICICI")) return "ICICI Bank";
-        if (str.includes("AXIS")) return "Axis Bank";
-        if (str.includes("KOTAK")) return "Kotak Mahindra Bank";
-        if (str.includes("PUNJAB NATIONAL") || str.includes("PNB")) return "Punjab National Bank";
-        if (str.includes("BANK OF BARODA") || str.includes("BOB")) return "Bank of Baroda";
-        if (str.includes("CANARA")) return "Canara Bank";
-        if (str.includes("PAYTM")) return "Paytm Payments Bank";
-        if (str.includes("YESB") || str.includes("YES BANK")) return "YES Bank";
-        return "Bank Statement";
+        const headerText = (text.substring(0, 1500) + " " + fileName).toUpperCase();
+        const fullStr = (text + " " + fileName).toUpperCase();
+
+        // 1. Check top header first for accurate bank identification
+        if (headerText.includes("CANARA") || headerText.includes("CNRB")) return "Canara Bank";
+        if (headerText.includes("STATE BANK OF INDIA") || headerText.includes("SBIN") || headerText.includes("SBI ")) return "State Bank of India (SBI)";
+        if (headerText.includes("HDFC BANK") || headerText.includes("HDFCB0")) return "HDFC Bank";
+        if (headerText.includes("ICICI") || headerText.includes("ICIC0")) return "ICICI Bank";
+        if (headerText.includes("AXIS") || headerText.includes("UTIB0")) return "Axis Bank";
+        if (headerText.includes("KOTAK") || headerText.includes("KKBK0")) return "Kotak Mahindra Bank";
+        if (headerText.includes("PUNJAB NATIONAL") || headerText.includes("PUNB0")) return "Punjab National Bank";
+        if (headerText.includes("BANK OF BARODA") || headerText.includes("BARB0")) return "Bank of Baroda";
+        if (headerText.includes("YES BANK") || headerText.includes("YESB0")) return "YES Bank";
+        if (headerText.includes("UNION BANK") || headerText.includes("UBIN0")) return "Union Bank of India";
+        if (headerText.includes("IDFC") || headerText.includes("IDFB0")) return "IDFC FIRST Bank";
+
+        // 2. Check full text if header had no clear hit
+        if (fullStr.includes("CANARA") || fullStr.includes("CNRB0")) return "Canara Bank";
+        if (fullStr.includes("STATE BANK OF INDIA") || fullStr.includes("SBIN0")) return "State Bank of India (SBI)";
+        if (fullStr.includes("HDFCB0") || fullStr.includes("HDFC BANK")) return "HDFC Bank";
+        if (fullStr.includes("ICICI BANK")) return "ICICI Bank";
+        if (fullStr.includes("AXIS BANK")) return "Axis Bank";
+        if (fullStr.includes("KOTAK MAHINDRA")) return "Kotak Mahindra Bank";
+        if (fullStr.includes("PUNJAB NATIONAL")) return "Punjab National Bank";
+        if (fullStr.includes("BANK OF BARODA")) return "Bank of Baroda";
+        if (fullStr.includes("YES BANK")) return "YES Bank";
+
+        return "Canara Bank";
     }
 
     /**
