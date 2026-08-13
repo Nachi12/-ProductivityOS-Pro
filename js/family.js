@@ -249,6 +249,9 @@ export class FamilyManager {
                                     `}
                                 </div>
                                 <div style="display:flex; gap:6px;">
+                                    <button class="btn btn-secondary btn-edit-member" data-member-id="${member.memberId}" title="Edit Member Details" style="font-size:0.8rem; padding:6px 10px;">
+                                        <i class="fa-solid fa-user-pen"></i> Edit
+                                    </button>
                                     <button class="btn btn-secondary btn-edit-permissions" data-member-id="${member.memberId}" title="Edit Permissions" style="font-size:0.8rem; padding:6px 10px;">
                                         <i class="fa-solid fa-shield-halved"></i>
                                     </button>
@@ -295,6 +298,13 @@ export class FamilyManager {
             btn.addEventListener('click', (e) => {
                 const memberId = e.currentTarget.dataset.memberId;
                 this.unlinkGoogleAccountFlow(memberId);
+            });
+        });
+
+        document.querySelectorAll('.btn-edit-member').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const memberId = e.currentTarget.dataset.memberId;
+                this.editMemberPrompt(memberId);
             });
         });
 
@@ -707,14 +717,87 @@ export class FamilyManager {
         this.render();
     }
 
+    async editMemberPrompt(memberId) {
+        const member = (this.familyData?.members || []).find(m => m.memberId === memberId);
+        if (!member) return;
+
+        const result = await showFormModal({
+            title: `Edit Member — ${member.name}`,
+            icon: 'fa-solid fa-user-pen',
+            submitLabel: 'Save Changes',
+            fields: [
+                { key: 'name', label: 'Full Name', type: 'text', value: member.name, required: true },
+                { 
+                    key: 'relationship', 
+                    label: 'Relationship', 
+                    type: 'dropdown', 
+                    value: member.relationship || 'Spouse', 
+                    options: [
+                        { value: 'Spouse', label: 'Spouse' },
+                        { value: 'Child', label: 'Child' },
+                        { value: 'Parent', label: 'Parent' },
+                        { value: 'Sibling', label: 'Sibling' },
+                        { value: 'Other', label: 'Other' }
+                    ]
+                },
+                { key: 'email', label: 'Email Address (Optional)', type: 'text', value: member.email || '', placeholder: 'e.g. member@gmail.com' }
+            ]
+        });
+
+        if (!result || !result.name) return;
+
+        const oldName = member.name;
+        member.name = result.name.trim();
+        member.relationship = result.relationship || 'Member';
+        if (result.email !== undefined) member.email = result.email.trim();
+
+        this.saveLocalFamilyData();
+
+        // Update custom_persons in localStorage if name changed so finance section updates
+        try {
+            let customPersons = JSON.parse(localStorage.getItem('custom_persons') || '[]');
+            const idx = customPersons.indexOf(oldName);
+            if (idx !== -1) {
+                customPersons[idx] = member.name;
+            } else if (!customPersons.includes(member.name)) {
+                customPersons.push(member.name);
+            }
+            localStorage.setItem('custom_persons', JSON.stringify(customPersons));
+        } catch(e) {}
+
+        showToast(`Updated details for ${member.name}.`, 'success');
+        this.render();
+
+        // Sync with backend asynchronously
+        try {
+            fetch(`${this.backendUrl}/members/${memberId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + (authManager.token || 'mock-token'),
+                    'x-user-uid': authManager.currentUser ? authManager.currentUser.uid : ''
+                },
+                body: JSON.stringify({ name: member.name, relationship: member.relationship, email: member.email })
+            }).catch(e => console.warn("Backend update member sync notice:", e.message));
+        } catch(err) {}
+    }
+
     async removeMemberFlow(memberId) {
         const member = (this.familyData?.members || []).find(m => m.memberId === memberId);
         if (!member) return;
 
         const confirmed = await showConfirmModal(`
-            Remove family member <strong>${member.name}</strong>?
+            <div style="text-align:left;">
+                <h3 style="margin-bottom:8px; text-align:center; color:var(--clr-red);">Remove Family Member?</h3>
+                <p style="font-size:0.95rem; color:var(--text-primary); margin-bottom:12px;">
+                    Are you sure you want to remove <strong>${member.name} (${member.relationship})</strong> from your family workspace?
+                </p>
+                <div style="background:rgba(229,57,53,0.08); border-left:4px solid var(--clr-red); padding:10px 14px; border-radius:var(--radius-sm); font-size:0.85rem; color:var(--clr-red);">
+                    <i class="fa-solid fa-triangle-exclamation"></i> <strong>Note:</strong> This will remove their member profile and access permissions from your family workspace.
+                </div>
+            </div>
         `, {
-            title: 'Remove Member',
+            title: `Remove ${member.name}`,
             confirmLabel: 'Remove Member',
             danger: true
         });
@@ -724,8 +807,19 @@ export class FamilyManager {
         if (this.familyData && this.familyData.members) {
             this.familyData.members = this.familyData.members.filter(m => m.memberId !== memberId);
             this.saveLocalFamilyData();
-            showToast(`Removed ${member.name} from family.`);
+            showToast(`Removed ${member.name} from family workspace.`, "info");
             this.render();
+
+            // Sync backend deletion asynchronously
+            try {
+                fetch(`${this.backendUrl}/members/${memberId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': 'Bearer ' + (authManager.token || 'mock-token'),
+                        'x-user-uid': authManager.currentUser ? authManager.currentUser.uid : ''
+                    }
+                }).catch(e => console.warn("Backend delete member sync notice:", e.message));
+            } catch(err) {}
         }
     }
 }
