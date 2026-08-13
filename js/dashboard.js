@@ -1,11 +1,13 @@
 // js/dashboard.js
 import { showToast } from './toast.js';
 import { showFormModal } from './modal.js';
+import { FinancialAnalyticsEngine, formatINR } from './analytics-calc.js';
 
 export class Dashboard {
     constructor(storage) {
         this.storage = storage;
         this.chartInstance = null;
+        this.finChartInstance = null;
         this.bindEvents();
     }
 
@@ -14,6 +16,7 @@ export class Dashboard {
         this.renderTasks();
         this.renderKPIs();
         this.initChart();
+        this.renderFinancialAnalytics();
         this.checkEmiDues();
     }
 
@@ -209,7 +212,7 @@ export class Dashboard {
 
         // Chart.js implementation (requires CDN loaded in index.html)
         if(window.Chart) {
-            Chart.defaults.color = 'var(--text-muted)';
+            Chart.defaults.color = '#ffffff';
             Chart.defaults.font.family = 'Inter';
             
             const style = getComputedStyle(document.documentElement);
@@ -235,8 +238,8 @@ export class Dashboard {
                     maintainAspectRatio: false,
                     plugins: { legend: { display: false } },
                     scales: {
-                        y: { beginAtZero: true, grid: { color: 'var(--border-color)' } },
-                        x: { grid: { display: false } }
+                        y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.12)' }, ticks: { color: '#ffffff', font: { weight: '600' } } },
+                        x: { grid: { display: false }, ticks: { color: '#ffffff', font: { weight: '600' } } }
                     }
                 }
             });
@@ -292,8 +295,8 @@ export class Dashboard {
                     submitLabel: 'Confirm Payment',
                     submitIcon: 'fa-solid fa-check',
                     fields: [
-                        { key: 'amount', label: 'Total EMI Paid (₹)', type: 'number', value: loan.emiPerMonth, required: true },
-                        { key: 'interest', label: 'Interest Part (₹) (Crucial for correct balance deduction)', type: 'number', value: 0, required: true }
+                        { key: 'amount', label: 'Total EMI Paid (₹)', type: 'amount', value: loan.emiPerMonth, required: true },
+                        { key: 'interest', label: 'Interest Part (₹) (Crucial for correct balance deduction)', type: 'amount', value: 0, required: true }
                     ]
                 });
                 
@@ -312,7 +315,7 @@ export class Dashboard {
                     amount: amountPaid,
                     interest: interestPaid,
                     category: 'EMI',
-                    person: loan.person || 'Main',
+                    person: loan.person || '',
                     type: 'expense',
                     linkedLoanId: loan.id,
                     date: today.toISOString().split('T')[0]
@@ -332,6 +335,181 @@ export class Dashboard {
                 // Refresh Dashboard Alerts
                 this.checkEmiDues(); 
             });
+        });
+    }
+
+    renderFinancialAnalytics() {
+        const container = document.getElementById('dashboard-financial-section');
+        if (!container) return;
+
+        const txns = this.storage.get('transactions') || [];
+        const loans = this.storage.get('loans') || [];
+        const activeFamilyMember = sessionStorage.getItem('prodos_active_family_member') || 'All';
+        const familyMember = activeFamilyMember === 'Main' ? 'All' : activeFamilyMember;
+
+        const filteredTxns = FinancialAnalyticsEngine.filterTransactions(txns, { timeframe: '30d', familyMember });
+        const income = FinancialAnalyticsEngine.calculateTotalIncome(filteredTxns);
+        const expenses = FinancialAnalyticsEngine.calculateTotalExpenses(filteredTxns);
+        const netSavings = FinancialAnalyticsEngine.calculateNetSavings(income, expenses);
+        const savingsRate = FinancialAnalyticsEngine.calculateSavingsRate(income, expenses);
+        const loanMetrics = FinancialAnalyticsEngine.calculateLoanMetrics(loans, familyMember, income);
+        const insights = FinancialAnalyticsEngine.generateFinancialInsights(txns, loans, familyMember);
+
+        const timeSeriesData = FinancialAnalyticsEngine.calculateTimeSeriesData(txns, '30d');
+
+        container.innerHTML = `
+            <div class="card" style="padding:var(--spacing-4);">
+                <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
+                    <h2><i class="fa-solid fa-chart-line" style="color:var(--accent-color);"></i> Financial Analytics & Intelligence Overview</h2>
+                    <div style="display:flex; gap:8px;">
+                        <button class="btn btn-secondary" id="dash-btn-add-income" style="padding:6px 12px; font-size:0.8rem;"><i class="fa-solid fa-arrow-down" style="color:var(--clr-green)"></i> + Income</button>
+                        <button class="btn btn-secondary" id="dash-btn-add-expense" style="padding:6px 12px; font-size:0.8rem;"><i class="fa-solid fa-arrow-up" style="color:var(--clr-red)"></i> + Expense</button>
+                        <a href="#analytics" class="btn btn-primary" style="padding:6px 12px; font-size:0.8rem; text-decoration:none;"><i class="fa-solid fa-chart-pie"></i> Full Analytics</a>
+                    </div>
+                </div>
+
+                <div class="card-body" style="display:flex; flex-direction:column; gap:var(--spacing-4);">
+                    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:12px;">
+                        <div style="background:var(--bg-input); padding:12px 14px; border-radius:var(--radius-md); border:1px solid var(--border-color);">
+                            <div style="font-size:0.72rem; font-weight:700; color:var(--text-muted); text-transform:uppercase;">30D Income</div>
+                            <div style="font-size:1.2rem; font-weight:700; color:var(--clr-green); margin-top:2px;">${formatINR(income)}</div>
+                        </div>
+
+                        <div style="background:var(--bg-input); padding:12px 14px; border-radius:var(--radius-md); border:1px solid var(--border-color);">
+                            <div style="font-size:0.72rem; font-weight:700; color:var(--text-muted); text-transform:uppercase;">30D Expenses</div>
+                            <div style="font-size:1.2rem; font-weight:700; color:var(--clr-red); margin-top:2px;">${formatINR(expenses)}</div>
+                        </div>
+
+                        <div style="background:var(--bg-input); padding:12px 14px; border-radius:var(--radius-md); border:1px solid var(--border-color);">
+                            <div style="font-size:0.72rem; font-weight:700; color:var(--text-muted); text-transform:uppercase;">Net Savings</div>
+                            <div style="font-size:1.2rem; font-weight:700; color:${netSavings >= 0 ? 'var(--clr-green)' : 'var(--clr-red)'}; margin-top:2px;">${formatINR(netSavings)}</div>
+                        </div>
+
+                        <div style="background:var(--bg-input); padding:12px 14px; border-radius:var(--radius-md); border:1px solid var(--border-color);">
+                            <div style="font-size:0.72rem; font-weight:700; color:var(--text-muted); text-transform:uppercase;">Savings Rate</div>
+                            <div style="font-size:1.2rem; font-weight:700; color:var(--text-primary); margin-top:2px;">${savingsRate}%</div>
+                        </div>
+
+                        <div style="background:var(--bg-input); padding:12px 14px; border-radius:var(--radius-md); border:1px solid var(--border-color);">
+                            <div style="font-size:0.72rem; font-weight:700; color:var(--text-muted); text-transform:uppercase;">Monthly EMI</div>
+                            <div style="font-size:1.2rem; font-weight:700; color:var(--clr-orange); margin-top:2px;">${formatINR(loanMetrics.monthlyEMI)}</div>
+                        </div>
+                    </div>
+
+                    <div style="position:relative; width:100%; height:260px;">
+                        <canvas id="dashboardFinancialChart"></canvas>
+                    </div>
+
+                    ${insights.length > 0 ? `
+                        <div style="display:flex; flex-direction:column; gap:8px;">
+                            ${insights.slice(0, 2).map(ins => `
+                                <div style="display:flex; align-items:center; gap:10px; padding:10px 14px; background:var(--bg-hover); border-radius:var(--radius-md); border:1px solid var(--border-color); font-size:0.85rem;">
+                                    <i class="${ins.icon}" style="font-size:1rem; color:var(--accent-color);"></i>
+                                    <div style="flex:1;"><strong>${ins.title}:</strong> ${ins.message}</div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    ` : ''}
+                </div>
+            </div>
+        `;
+
+        // Render Canvas Chart
+        const ctx = document.getElementById('dashboardFinancialChart');
+        if (ctx && window.Chart) {
+            if (this.finChartInstance) this.finChartInstance.destroy();
+            this.finChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: timeSeriesData.map(d => d.label),
+                    datasets: [
+                        {
+                            label: 'Income',
+                            data: timeSeriesData.map(d => d.income),
+                            borderColor: '#43a047',
+                            backgroundColor: 'rgba(67, 160, 71, 0.1)',
+                            borderWidth: 2,
+                            fill: true,
+                            tension: 0.35
+                        },
+                        {
+                            label: 'Expenses',
+                            data: timeSeriesData.map(d => d.expenses),
+                            borderColor: '#e53935',
+                            backgroundColor: 'rgba(229, 57, 53, 0.1)',
+                            borderWidth: 2,
+                            fill: true,
+                            tension: 0.35
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.12)' }, ticks: { color: '#ffffff', font: { weight: '600' } } },
+                        x: { grid: { display: false }, ticks: { color: '#ffffff', font: { weight: '600' } } }
+                    }
+                }
+            });
+        }
+
+        // Bind quick action buttons on dashboard
+        document.getElementById('dash-btn-add-income')?.addEventListener('click', async () => {
+            const result = await showFormModal({
+                title: 'Add Income',
+                icon: 'fa-solid fa-arrow-down',
+                submitLabel: 'Save Income',
+                fields: [
+                    { key: 'title', label: 'Title', type: 'text', placeholder: 'e.g. June Salary', required: true },
+                    { key: 'amount', label: 'Amount (₹)', type: 'amount', required: true },
+                    { key: 'category', label: 'Category', type: 'dropdown', options: ['Salary', 'Freelance', 'Other'] },
+                    { key: 'date', label: 'Date', type: 'date', value: new Date().toISOString().split('T')[0] }
+                ]
+            });
+            if (result) {
+                const txns = this.storage.get('transactions') || [];
+                txns.push({
+                    id: 'txn_' + Date.now(),
+                    title: result.title,
+                    amount: parseFloat(result.amount),
+                    category: result.category,
+                    date: result.date,
+                    type: 'income'
+                });
+                this.storage.set('transactions', txns);
+                showToast('Income entry saved!');
+                this.renderFinancialAnalytics();
+            }
+        });
+
+        document.getElementById('dash-btn-add-expense')?.addEventListener('click', async () => {
+            const result = await showFormModal({
+                title: 'Add Expense',
+                icon: 'fa-solid fa-arrow-up',
+                submitLabel: 'Save Expense',
+                fields: [
+                    { key: 'title', label: 'Title', type: 'text', placeholder: 'e.g. Grocery, Rent', required: true },
+                    { key: 'amount', label: 'Amount (₹)', type: 'amount', required: true },
+                    { key: 'category', label: 'Category', type: 'dropdown', options: ['Food', 'Rent', 'Transport', 'Shopping', 'Bills', 'Entertainment', 'Health', 'EMI', 'Other'] },
+                    { key: 'date', label: 'Date', type: 'date', value: new Date().toISOString().split('T')[0] }
+                ]
+            });
+            if (result) {
+                const txns = this.storage.get('transactions') || [];
+                txns.push({
+                    id: 'txn_' + Date.now(),
+                    title: result.title,
+                    amount: parseFloat(result.amount),
+                    category: result.category,
+                    date: result.date,
+                    type: 'expense'
+                });
+                this.storage.set('transactions', txns);
+                showToast('Expense entry saved!');
+                this.renderFinancialAnalytics();
+            }
         });
     }
 }

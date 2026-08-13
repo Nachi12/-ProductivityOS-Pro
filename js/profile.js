@@ -88,12 +88,28 @@ export class ProfileManager {
         const user = authManager.currentUser || { displayName: 'User', email: 'user@gmail.com', photoURL: '' };
         const family = this.familyData || { name: 'My Family Workspace', members: [] };
         const members = family.members || [];
+        
+        const activeTab = this.activeTab || 'personal';
 
         container.innerHTML = `
+            <style>
+                .profile-layout { display: grid; grid-template-columns: 240px 1fr; gap: 24px; align-items: start; }
+                .profile-nav { list-style: none; padding: 0; margin: 0; }
+                .profile-nav-item { padding: 12px 20px; cursor: pointer; display: flex; align-items: center; gap: 12px; color: var(--text-secondary); font-weight: 500; font-size: 0.95rem; transition: all var(--transition-fast); border-left: 3px solid transparent; }
+                .profile-nav-item:hover { background: var(--bg-hover); color: var(--text-primary); }
+                .profile-nav-item.active { background: var(--accent-light); color: var(--accent-color); border-left-color: var(--accent-color); }
+                .profile-nav-item i { width: 20px; text-align: center; }
+                @media (max-width: 768px) {
+                    .profile-layout { grid-template-columns: 1fr; }
+                    .profile-nav { display: flex; overflow-x: auto; padding-bottom: 8px; border-bottom: 1px solid var(--border-light); }
+                    .profile-nav-item { white-space: nowrap; border-left: none; border-bottom: 3px solid transparent; }
+                    .profile-nav-item.active { border-left-color: transparent; border-bottom-color: var(--accent-color); }
+                }
+            </style>
             <div class="view-header" style="margin-bottom: 24px;">
                 <div>
-                    <h1><i class="fa-solid fa-circle-user" style="color:var(--accent-color); margin-right:8px;"></i>User Profile & Family Workspace</h1>
-                    <p class="subtitle text-muted">Manage your Google identity and synchronized family accounts</p>
+                    <h1><i class="fa-solid fa-circle-user" style="color:var(--accent-color); margin-right:8px;"></i>Profile & Settings</h1>
+                    <p class="subtitle text-muted">Manage your identity, preferences, and family workspace</p>
                 </div>
                 <div>
                     <button class="btn btn-secondary" id="profile-logout-btn" style="color:var(--clr-red);">
@@ -102,10 +118,42 @@ export class ProfileManager {
                 </div>
             </div>
 
-            <div class="dashboard-grid" style="grid-template-columns: 1fr 2fr; gap: 24px;">
-                
-                <!-- User Account Profile Card -->
-                <div class="card" style="align-self: start;">
+            <div class="profile-layout">
+                <!-- Sidebar Nav -->
+                <div class="card" style="padding: 16px 0;">
+                    <ul class="profile-nav">
+                        <li class="profile-nav-item ${activeTab === 'personal' ? 'active' : ''}" data-tab="personal">
+                            <i class="fa-solid fa-id-card"></i> Personal Info
+                        </li>
+                        <li class="profile-nav-item ${activeTab === 'financial' ? 'active' : ''}" data-tab="financial">
+                            <i class="fa-solid fa-coins"></i> Financial Profile
+                        </li>
+                        <li class="profile-nav-item ${activeTab === 'security' ? 'active' : ''}" data-tab="security">
+                            <i class="fa-solid fa-shield-halved"></i> Account & Security
+                        </li>
+                        <li class="profile-nav-item ${activeTab === 'family' ? 'active' : ''}" data-tab="family">
+                            <i class="fa-solid fa-people-roof"></i> Family Management
+                        </li>
+                        <li class="profile-nav-item ${activeTab === 'preferences' ? 'active' : ''}" data-tab="preferences">
+                            <i class="fa-solid fa-sliders"></i> Preferences
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- Content Area -->
+                <div class="profile-content">
+                    ${this.renderTabContent(activeTab, user, members)}
+                </div>
+            </div>
+        `;
+
+        this.bindEvents();
+    }
+
+    renderTabContent(activeTab, user, members) {
+        if (activeTab === 'personal') {
+            return `
+                <div class="card">
                     <div class="card-header" style="text-align:center; padding: 24px 16px 16px;">
                         <div style="width: 80px; height: 80px; margin: 0 auto 14px; border-radius: 50%; border: 3px solid var(--accent-color); overflow: hidden; background: var(--bg-hover); display:flex; align-items:center; justify-content:center;">
                             ${user.photoURL ? `<img src="${user.photoURL}" style="width:100%;height:100%;object-fit:cover;">` : `<i class="fa-solid fa-user" style="font-size:2.5rem; color:var(--text-muted);"></i>`}
@@ -115,12 +163,54 @@ export class ProfileManager {
                             <i class="fa-brands fa-google"></i> Google Account Linked
                         </span>
                     </div>
-
                     <div class="card-body" style="border-top: 1px solid var(--border-light); padding-top: 16px;">
                         <div style="margin-bottom:14px;">
                             <label style="font-size:0.75rem; font-weight:700; color:var(--text-muted); text-transform:uppercase;">Email Address</label>
                             <p style="font-size:0.92rem; font-weight:500; color:var(--text-primary); margin-top:2px;">${user.email || 'N/A'}</p>
                         </div>
+                        <button class="btn btn-secondary" id="btn-edit-profile-name" style="width:100%; justify-content:center; margin-top:8px;">
+                            <i class="fa-solid fa-pen-to-square"></i> Edit Display Name
+                        </button>
+                    </div>
+                </div>
+            `;
+        } else if (activeTab === 'financial') {
+            return `
+                <div class="card">
+                    <div class="card-header">
+                        <h2><i class="fa-solid fa-coins" style="color:var(--accent-color);"></i> Financial Profile</h2>
+                    </div>
+                    <div class="card-body">
+                        <div class="form-group mb-3">
+                            <label>Primary Currency</label>
+                            <select class="input-light" style="width: 100%; margin-top: 8px;">
+                                <option value="INR" selected>INR - Indian Rupee (₹)</option>
+                                <option value="USD">USD - US Dollar ($)</option>
+                                <option value="EUR">EUR - Euro (€)</option>
+                            </select>
+                        </div>
+                        <div class="form-group mb-3">
+                            <label>Monthly Financial Goal</label>
+                            <input type="text" class="input-light" value="1,00,000" style="width: 100%; margin-top: 8px;" placeholder="e.g. 50,000">
+                        </div>
+                        <div class="form-group mb-3">
+                            <label>Financial Year Start</label>
+                            <select class="input-light" style="width: 100%; margin-top: 8px;">
+                                <option value="apr" selected>April</option>
+                                <option value="jan">January</option>
+                            </select>
+                        </div>
+                        <button class="btn btn-primary" style="margin-top: 16px;">Save Financial Profile</button>
+                    </div>
+                </div>
+            `;
+        } else if (activeTab === 'security') {
+            return `
+                <div class="card">
+                    <div class="card-header">
+                        <h2><i class="fa-solid fa-shield-halved" style="color:var(--accent-color);"></i> Account & Security</h2>
+                    </div>
+                    <div class="card-body">
                         <div style="margin-bottom:14px;">
                             <label style="font-size:0.75rem; font-weight:700; color:var(--text-muted); text-transform:uppercase;">Workspace Role</label>
                             <p style="font-size:0.92rem; font-weight:500; color:var(--text-primary); margin-top:2px;">
@@ -133,101 +223,139 @@ export class ProfileManager {
                                 <i class="fa-solid fa-database" style="color:#4CAF50;"></i> MongoDB Persistent Cloud Storage
                             </p>
                         </div>
-                        <button class="btn btn-secondary" id="btn-edit-profile-name" style="width:100%; justify-content:center; margin-top:8px;">
-                            <i class="fa-solid fa-pen-to-square"></i> Edit Display Name
-                        </button>
                     </div>
                 </div>
-
-                <!-- Family Member Google Account Linking & Shared Data Sync Card -->
+            `;
+        } else if (activeTab === 'family') {
+            return this.renderFamilyCard(members);
+        } else if (activeTab === 'preferences') {
+            return `
                 <div class="card">
-                    <div class="card-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
-                        <div>
-                            <h2 style="font-size:1.15rem; font-weight:700;">
-                                <i class="fa-solid fa-people-roof" style="color:var(--accent-color);"></i> Family Members & Data Sync
-                            </h2>
-                            <p class="text-muted" style="font-size:0.85rem; margin-top:2px;">
-                                Link family members through Google accounts. All linked members view and synchronize saved workspace data.
+                    <div class="card-header">
+                        <h2><i class="fa-solid fa-sliders" style="color:var(--accent-color);"></i> Preferences</h2>
+                    </div>
+                    <div class="card-body">
+                        <div class="form-group mb-3">
+                            <label>Theme</label>
+                            <select class="input-light" style="width: 100%; margin-top: 8px;">
+                                <option value="system" selected>System Default</option>
+                                <option value="dark">Dark Theme (Cyber Glass)</option>
+                                <option value="light">Light Theme</option>
+                            </select>
+                        </div>
+                        <div class="form-group mb-3">
+                            <label>Email Notifications</label>
+                            <div style="margin-top: 8px;">
+                                <label style="display: flex; align-items: center; gap: 8px; font-weight: 500;">
+                                    <input type="checkbox" checked style="accent-color: var(--accent-color); width: 16px; height: 16px;">
+                                    Weekly Productivity Summary
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        return '';
+    }
+
+    renderFamilyCard(members) {
+        return `
+            <!-- Family Member Google Account Linking & Shared Data Sync Card -->
+            <div class="card">
+                <div class="card-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+                    <div>
+                        <h2 style="font-size:1.15rem; font-weight:700;">
+                            <i class="fa-solid fa-people-roof" style="color:var(--accent-color);"></i> Family Members & Data Sync
+                        </h2>
+                        <p class="text-muted" style="font-size:0.85rem; margin-top:2px;">
+                            Link family members through Google accounts. All linked members view and synchronize saved workspace data.
+                        </p>
+                    </div>
+                    <button class="btn btn-primary" id="profile-btn-add-member">
+                        <i class="fa-solid fa-user-plus"></i> Add Family Member
+                    </button>
+                </div>
+
+                <div class="card-body">
+                    <!-- Data Sharing Banner -->
+                    <div style="background:var(--bg-input); border-left:4px solid var(--accent-color); border-radius:var(--radius-sm); padding:14px; margin-bottom:20px; display:flex; align-items:center; gap:12px;">
+                        <i class="fa-solid fa-cloud-arrow-up" style="font-size:1.5rem; color:var(--accent-color);"></i>
+                        <div style="font-size:0.88rem; color:var(--text-primary); line-height:1.5;">
+                            <strong>Shared Workspace Data Active:</strong> When family members link their Google accounts, all saved tasks, finance entries, and notes automatically synchronize across every linked device via MongoDB.
+                        </div>
+                    </div>
+
+                    <!-- Members List -->
+                    ${members.length === 0 ? `
+                        <div style="text-align:center; padding:32px 16px; border:2px dashed var(--border-color); border-radius:var(--radius-md);">
+                            <i class="fa-solid fa-users" style="font-size:2.2rem; color:var(--text-muted); margin-bottom:10px;"></i>
+                            <h3 style="font-size:1rem; font-weight:600;">No Family Members Linked Yet</h3>
+                            <p class="text-muted" style="font-size:0.85rem; margin-top:4px; max-width:380px; margin-left:auto; margin-right:auto;">
+                                Add members and share Google invite links so your family members can log in and view shared saved data.
                             </p>
                         </div>
-                        <button class="btn btn-primary" id="profile-btn-add-member">
-                            <i class="fa-solid fa-user-plus"></i> Add Family Member
-                        </button>
-                    </div>
-
-                    <div class="card-body">
-                        <!-- Data Sharing Banner -->
-                        <div style="background:var(--bg-input); border-left:4px solid var(--accent-color); border-radius:var(--radius-sm); padding:14px; margin-bottom:20px; display:flex; align-items:center; gap:12px;">
-                            <i class="fa-solid fa-cloud-arrow-up" style="font-size:1.5rem; color:var(--accent-color);"></i>
-                            <div style="font-size:0.88rem; color:var(--text-primary); line-height:1.5;">
-                                <strong>Shared Workspace Data Active:</strong> When family members link their Google accounts, all saved tasks, finance entries, and notes automatically synchronize across every linked device via MongoDB.
-                            </div>
-                        </div>
-
-                        <!-- Members List -->
-                        ${members.length === 0 ? `
-                            <div style="text-align:center; padding:32px 16px; border:2px dashed var(--border-color); border-radius:var(--radius-md);">
-                                <i class="fa-solid fa-users" style="font-size:2.2rem; color:var(--text-muted); margin-bottom:10px;"></i>
-                                <h3 style="font-size:1rem; font-weight:600;">No Family Members Linked Yet</h3>
-                                <p class="text-muted" style="font-size:0.85rem; margin-top:4px; max-width:380px; margin-left:auto; margin-right:auto;">
-                                    Add members and share Google invite links so your family members can log in and view shared saved data.
-                                </p>
-                            </div>
-                        ` : `
-                            <div style="display:flex; flex-direction:column; gap:14px;">
-                                ${members.map(member => {
-                                    const isLinked = Boolean(member.firebaseUid);
-                                    return `
-                                        <div style="background:var(--bg-input); border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:16px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
-                                            <div style="display:flex; align-items:center; gap:12px;">
-                                                <div style="width:42px; height:42px; border-radius:50%; background:var(--bg-card); display:flex; align-items:center; justify-content:center; border:1px solid var(--border-color);">
-                                                    ${member.photoURL ? `<img src="${member.photoURL}" style="width:100%;height:100%;border-radius:50%;">` : `<i class="fa-solid fa-user" style="color:var(--accent-color);"></i>`}
-                                                </div>
-                                                <div>
-                                                    <div style="font-weight:700; font-size:0.98rem; color:var(--text-primary); display:flex; align-items:center; gap:8px;">
-                                                        ${member.name}
-                                                        <span class="badge" style="font-size:0.7rem; background:var(--bg-hover); color:var(--text-muted);">
-                                                            ${member.relationship}
-                                                        </span>
-                                                    </div>
-                                                    <div style="font-size:0.82rem; color:var(--text-muted); margin-top:2px;">
-                                                        ${isLinked ? `<span style="color:#2e7d32; font-weight:600;">● Google Linked:</span> ${member.email || 'Active'}` : '<span style="color:var(--clr-orange);">● Not Linked — Send invite link to connect</span>'}
-                                                    </div>
-                                                </div>
+                    ` : `
+                        <div style="display:flex; flex-direction:column; gap:14px;">
+                            ${members.map(member => {
+                                const isLinked = Boolean(member.firebaseUid);
+                                return `
+                                    <div style="background:var(--bg-input); border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:16px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+                                        <div style="display:flex; align-items:center; gap:12px;">
+                                            <div style="width:42px; height:42px; border-radius:50%; background:var(--bg-card); display:flex; align-items:center; justify-content:center; border:1px solid var(--border-color);">
+                                                ${member.photoURL ? `<img src="${member.photoURL}" style="width:100%;height:100%;border-radius:50%;">` : `<i class="fa-solid fa-user" style="color:var(--accent-color);"></i>`}
                                             </div>
-
-                                            <div style="display:flex; align-items:center; gap:8px;">
-                                                ${isLinked ? `
-                                                    <span class="badge badge-success" style="font-size:0.8rem; padding:6px 12px; border-radius:12px;">
-                                                        <i class="fa-solid fa-arrows-rotate"></i> Data Synced
+                                            <div>
+                                                <div style="font-weight:700; font-size:0.98rem; color:var(--text-primary); display:flex; align-items:center; gap:8px;">
+                                                    ${member.name}
+                                                    <span class="badge" style="font-size:0.7rem; background:var(--bg-hover); color:var(--text-muted);">
+                                                        ${member.relationship}
                                                     </span>
-                                                    <button class="btn btn-secondary btn-profile-unlink" data-member-id="${member.memberId}" style="font-size:0.8rem; padding:6px 10px; color:var(--clr-red);">
-                                                        Unlink
-                                                    </button>
-                                                ` : `
-                                                    <button class="btn btn-primary btn-profile-share" data-member-id="${member.memberId}" style="font-size:0.8rem; padding:6px 12px;">
-                                                        <i class="fa-solid fa-share-nodes"></i> Share Google Link
-                                                    </button>
-                                                `}
-                                                <button class="btn btn-secondary btn-profile-remove" data-member-id="${member.memberId}" style="font-size:0.8rem; padding:6px 10px; color:var(--clr-red);" title="Remove Member">
-                                                    <i class="fa-solid fa-trash"></i>
-                                                </button>
+                                                </div>
+                                                <div style="font-size:0.82rem; color:var(--text-muted); margin-top:2px;">
+                                                    ${isLinked ? `<span style="color:#2e7d32; font-weight:600;">● Google Linked:</span> ${member.email || 'Active'}` : '<span style="color:var(--clr-orange);">● Not Linked — Send invite link to connect</span>'}
+                                                </div>
                                             </div>
                                         </div>
-                                    `;
-                                }).join('')}
-                            </div>
-                        `}
-                    </div>
-                </div>
 
+                                        <div style="display:flex; align-items:center; gap:8px;">
+                                            ${isLinked ? `
+                                                <span class="badge badge-success" style="font-size:0.8rem; padding:6px 12px; border-radius:12px;">
+                                                    <i class="fa-solid fa-arrows-rotate"></i> Data Synced
+                                                </span>
+                                                <button class="btn btn-secondary btn-profile-unlink" data-member-id="${member.memberId}" style="font-size:0.8rem; padding:6px 10px; color:var(--clr-red);">
+                                                    Unlink
+                                                </button>
+                                            ` : `
+                                                <button class="btn btn-primary btn-profile-share" data-member-id="${member.memberId}" style="font-size:0.8rem; padding:6px 12px;">
+                                                    <i class="fa-solid fa-share-nodes"></i> Share Google Link
+                                                </button>
+                                            `}
+                                            <button class="btn btn-secondary btn-profile-remove" data-member-id="${member.memberId}" style="font-size:0.8rem; padding:6px 10px; color:var(--clr-red);" title="Remove Member">
+                                                <i class="fa-solid fa-trash"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    `}
+                </div>
             </div>
         `;
-
-        this.bindEvents();
     }
 
     bindEvents() {
+        document.querySelectorAll('.profile-nav-item').forEach(item => {
+            item.addEventListener('click', (e) => {
+                const tab = e.currentTarget.dataset.tab;
+                if (tab && this.activeTab !== tab) {
+                    this.activeTab = tab;
+                    this.render();
+                }
+            });
+        });
+
         document.getElementById('profile-logout-btn')?.addEventListener('click', () => authManager.logout());
         document.getElementById('profile-btn-add-member')?.addEventListener('click', () => this.addMember());
 
@@ -304,6 +432,10 @@ export class ProfileManager {
                     }
                 }
             });
+        });
+
+        document.addEventListener('openAddFamilyMemberModal', () => {
+            this.addMember();
         });
     }
 

@@ -26,6 +26,7 @@ class AuthManager {
         this.isLoading = true;
         this.authCallbacks = [];
         this.isProfileMenuOpen = false;
+        this.activeFamilyMember = sessionStorage.getItem('prodos_active_family_member') || 'Main';
         this.config = getStoredFirebaseConfig();
 
         this.initFirebase();
@@ -176,6 +177,36 @@ class AuthManager {
 
         const user = this.currentUser || { displayName: 'User', email: 'user@gmail.com', photoURL: '' };
 
+        let familyData = null;
+        try {
+            const saved = localStorage.getItem('prodos_family_data');
+            if (saved) familyData = JSON.parse(saved);
+        } catch (e) {}
+        
+        let membersHtml = '';
+        if (familyData && familyData.members) {
+            membersHtml = `
+                <div style="padding: 6px 16px; font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Switch Family Member</div>
+                <button class="profile-dropdown-member-btn ${this.activeFamilyMember === 'Main' ? 'active' : ''}" data-name="Main" style="width:100%; display:flex; align-items:center; gap:10px; padding:8px 16px; background:${this.activeFamilyMember === 'Main' ? 'var(--bg-hover)' : 'none'}; border:none; color:var(--text-primary); font-size:0.88rem; cursor:pointer; text-align:left;">
+                    <i class="fa-solid fa-user"></i> Main / ${user.displayName}
+                </button>
+            `;
+            familyData.members.forEach(m => {
+                const isActive = this.activeFamilyMember === m.name;
+                membersHtml += `
+                    <button class="profile-dropdown-member-btn ${isActive ? 'active' : ''}" data-name="${m.name}" style="width:100%; display:flex; align-items:center; gap:10px; padding:8px 16px; background:${isActive ? 'var(--bg-hover)' : 'none'}; border:none; color:var(--text-primary); font-size:0.88rem; cursor:pointer; text-align:left;">
+                        <i class="fa-solid fa-user"></i> ${m.name} <span style="font-size: 0.7rem; color: var(--text-muted);">(${m.relationship})</span>
+                    </button>
+                `;
+            });
+            membersHtml += `
+                <button id="profile-dropdown-add-member" style="width:100%; display:flex; align-items:center; gap:10px; padding:8px 16px; background:none; border:none; color:var(--accent-color); font-size:0.88rem; cursor:pointer; text-align:left; font-weight: 500;">
+                    <i class="fa-solid fa-plus"></i> Add Family Member
+                </button>
+                <div style="height:1px; background:var(--border-light); margin:6px 0;"></div>
+            `;
+        }
+
         menu.innerHTML = `
             <div style="padding: 16px; border-bottom: 1px solid var(--border-light); display:flex; align-items:center; gap:12px; background: var(--bg-input);">
                 <div class="user-avatar" style="width:42px; height:42px; font-size:1.1rem; border:2px solid var(--accent-color); flex-shrink:0;">
@@ -191,6 +222,7 @@ class AuthManager {
                 </div>
             </div>
             <div style="padding: 6px 0;">
+                ${membersHtml}
                 <a href="#profile" class="profile-dropdown-item" style="display:flex; align-items:center; gap:10px; padding:10px 16px; text-decoration:none; color:var(--text-primary); font-size:0.88rem;">
                     <i class="fa-solid fa-circle-user" style="color:var(--accent-color);"></i> Profile & Family
                 </a>
@@ -211,6 +243,25 @@ class AuthManager {
 
         menu.querySelectorAll('.profile-dropdown-item').forEach(item => {
             item.addEventListener('click', () => this.closeProfileMenu());
+        });
+        
+        menu.querySelectorAll('.profile-dropdown-member-btn').forEach(item => {
+            item.addEventListener('click', (e) => {
+                const newMember = e.currentTarget.dataset.name;
+                if (newMember !== this.activeFamilyMember) {
+                    this.activeFamilyMember = newMember;
+                    sessionStorage.setItem('prodos_active_family_member', newMember);
+                    document.dispatchEvent(new CustomEvent('familyMemberSwitched', { detail: newMember }));
+                    this.renderProfileDropdown(); // Re-render to show active state
+                }
+                this.closeProfileMenu();
+            });
+        });
+
+        menu.querySelector('#profile-dropdown-add-member')?.addEventListener('click', () => {
+            this.closeProfileMenu();
+            // Dispatch event for profile.js to handle adding a member
+            document.dispatchEvent(new CustomEvent('openAddFamilyMemberModal'));
         });
     }
 
@@ -267,24 +318,31 @@ class AuthManager {
                 showToast(`Welcome, ${result.user.displayName || 'User'}!`);
                 return;
             } catch (error) {
-                console.warn("Firebase popup sign-in notice:", error.message || error.code);
+                this.updateLoadingState(false);
+                let msg = 'Authentication failed.';
+                if (error.code === 'auth/popup-closed-by-user') msg = 'Sign-in cancelled.';
+                else if (error.code === 'auth/network-request-failed') msg = 'Network error. Check connection.';
+                console.error("Auth error:", error);
+                showToast(msg, 'error');
+                return;
             }
+        } else {
+            // Fallback for isolated local environment without Firebase setup
+            this.currentUser = {
+                uid: `google_user_local_dev`,
+                displayName: 'Local Dev User',
+                email: 'local.dev@gmail.com',
+                photoURL: ''
+            };
+            this.token = 'local-dev-token';
+            this.isAuthenticated = true;
+            sessionStorage.setItem('prodos_active_user', JSON.stringify(this.currentUser));
+
+            this.updateUI(true);
+            this.updateLoadingState(false);
+            showToast("Signed in (Local Dev Fallback)");
+            this.notifyAuthChange();
         }
-
-        this.currentUser = {
-            uid: `google_user_${Date.now().toString(36)}`,
-            displayName: 'Google User',
-            email: 'google.user@gmail.com',
-            photoURL: ''
-        };
-        this.token = 'google-auth-token';
-        this.isAuthenticated = true;
-        sessionStorage.setItem('prodos_active_user', JSON.stringify(this.currentUser));
-
-        this.updateUI(true);
-        this.updateLoadingState(false);
-        showToast("Signed in successfully!");
-        this.notifyAuthChange();
     }
 
     async authenticateGoogleForLinking() {

@@ -1,5 +1,6 @@
 // js/modal.js
 // Global in-page modal system — replaces all prompt() and confirm() calls
+import { attachCurrencyFormatter, getRawValue } from './formatters.js';
 
 let stylesInjected = false;
 
@@ -214,6 +215,9 @@ export function showFormModal(opts) {
                 const input = buildInput(f);
                 wrapper.appendChild(input);
                 fieldEls[f.key] = input;
+                if (f.type === 'amount') {
+                    attachCurrencyFormatter(input);
+                }
             }
 
             body.appendChild(wrapper);
@@ -286,7 +290,7 @@ function buildInput(f) {
     }
     const inp = document.createElement('input');
     inp.className = 'gm-input';
-    inp.type = f.type || 'text';
+    inp.type = (f.type === 'amount') ? 'text' : (f.type || 'text');
     inp.placeholder = f.placeholder || '';
     inp.value = f.value || '';
     if (f.min !== undefined) inp.min = f.min;
@@ -299,6 +303,7 @@ function getFieldValue(el, f) {
     if (!el) return '';
     if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT') {
         if (f.type === 'number') return el.value ? parseFloat(el.value) : '';
+        if (f.type === 'amount') return getRawValue(el);
         return el.value.trim();
     }
     return '';

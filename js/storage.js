@@ -51,10 +51,10 @@ export class StorageManager {
                 { id: 'g2', title: 'Scale Active User Base', target: 500, current: 320, unit: 'Users', keyResults: [{ name: 'Publish Google invite links', done: true }] }
             ],
             transactions: [
-                { id: 'tx1', type: 'income', description: 'Enterprise Client Milestone Payment', amount: 4500, category: 'Consulting', date: today },
-                { id: 'tx2', type: 'expense', description: 'MongoDB Cloud Database Hosting', amount: 120, category: 'Infrastructure', date: today },
-                { id: 'tx3', type: 'expense', description: 'Google Developer Workspace Subscription', amount: 45, category: 'Software', date: today },
-                { id: 'tx4', type: 'expense', description: 'Office Supplies & Equipment', amount: 180, category: 'Operations', date: today }
+                { id: 'tx1', type: 'income', title: 'Enterprise Client Milestone Payment', description: 'Enterprise Client Milestone Payment', amount: 4500, category: 'Consulting', date: today },
+                { id: 'tx2', type: 'expense', title: 'MongoDB Cloud Database Hosting', description: 'MongoDB Cloud Database Hosting', amount: 120, category: 'Infrastructure', date: today },
+                { id: 'tx3', type: 'expense', title: 'Google Developer Workspace Subscription', description: 'Google Developer Workspace Subscription', amount: 45, category: 'Software', date: today },
+                { id: 'tx4', type: 'expense', title: 'Office Supplies & Equipment', description: 'Office Supplies & Equipment', amount: 180, category: 'Operations', date: today }
             ],
             loans: [],
             books: [

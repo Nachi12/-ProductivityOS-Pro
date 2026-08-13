@@ -1,13 +1,20 @@
-// js/finance.js
 import { showToast } from './toast.js';
 import { showConfirmModal, showFormModal } from './modal.js';
+import { attachCurrencyFormatter, getRawValue } from './formatters.js';
+import { BankStatementAnalyzer } from './bank-statement-analyzer.js';
 
 export class FinanceManager {
     constructor(storage) {
         this.storage = storage;
         this.stylesInjected = false;
-        this.currentPersonFilter = 'All'; // 'All' or specific person
-        this.currentEntryType = 'expense'; // 'expense', 'income', or 'loan'
+        
+        // Get initial global family member or default to 'All' if 'Main'
+        let activeMember = sessionStorage.getItem('prodos_active_family_member') || 'All';
+        if (activeMember === 'Main') activeMember = 'All';
+        
+        this.currentPersonFilter = activeMember;
+        this.currentViewMode = 'expense'; // 'expense', 'income', 'loans', or 'analyzer'
+        this.bsa = new BankStatementAnalyzer(this.storage);
     }
 
     init() {
@@ -17,12 +24,16 @@ export class FinanceManager {
 
     getTransactions() {
         let txns = this.storage.get('transactions') || [];
-        return txns.map(t => ({ ...t, person: t.person || 'Main' }));
+        return txns.map(t => ({
+            ...t,
+            title: t.title || t.description || 'Untitled Transaction',
+            person: (t.person === 'Main' ? '' : (t.person || ''))
+        }));
     }
 
     getLoans() {
         let loans = this.storage.get('loans') || [];
-        return loans.map(l => ({ ...l, person: l.person || 'Main' }));
+        return loans.map(l => ({ ...l, person: (l.person === 'Main' ? '' : (l.person || '')) }));
     }
 
     saveTransactions(txns) {
@@ -36,9 +47,24 @@ export class FinanceManager {
     getPersons() {
         const txns = this.getTransactions();
         const loans = this.getLoans();
-        const persons = new Set([...txns.map(t => t.person), ...loans.map(l => l.person)]);
-        if (persons.size === 0) persons.add('Main');
-        return Array.from(persons).sort();
+        const customPersons = this.storage.get('custom_persons') || [];
+        
+        let familyMembers = [];
+        try {
+            const familyData = JSON.parse(localStorage.getItem('prodos_family_data'));
+            if (familyData && Array.isArray(familyData.members)) {
+                familyMembers = familyData.members.map(m => m.name);
+            }
+        } catch (e) {}
+
+        const persons = new Set([
+            ...familyMembers,
+            ...customPersons,
+            ...txns.map(t => t.person).filter(p => p && p !== 'Main'),
+            ...loans.map(l => l.person).filter(p => p && p !== 'Main')
+        ]);
+
+        return Array.from(persons).filter(p => p && p !== 'Main').sort((a, b) => a.localeCompare(b));
     }
 
     formatCurrency(amount) {
@@ -50,35 +76,48 @@ export class FinanceManager {
         const style = document.createElement('style');
         style.id = 'finance-styles';
         style.textContent = `
-            .fin-container { display: grid; grid-template-columns: 240px 1fr; gap: var(--spacing-6); height: 100%; align-items: start; }
+            .fin-container { display: grid; grid-template-columns: 240px 1fr; gap: var(--spacing-5); height: 100%; align-items: start; }
             .fin-sidebar { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: var(--spacing-4); }
-            .fin-sidebar h3 { font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: var(--spacing-3); font-weight: 600; }
-            .fin-person-btn { display: flex; align-items: center; gap: var(--spacing-3); width: 100%; padding: var(--spacing-2) var(--spacing-3); background: none; border: none; text-align: left; color: var(--text-secondary); border-radius: var(--radius-sm); cursor: pointer; transition: all var(--transition-fast); margin-bottom: var(--spacing-1); font-size: 0.95rem; font-weight: 500; }
+            .fin-sidebar h3 { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: var(--spacing-3); font-weight: 700; }
+            .fin-person-btn { display: flex; align-items: center; gap: var(--spacing-3); width: 100%; padding: 10px 14px; background: none; border: none; text-align: left; color: var(--text-secondary); border-radius: var(--radius-md); cursor: pointer; transition: all var(--transition-fast); margin-bottom: 4px; font-size: 0.9rem; font-weight: 500; }
             .fin-person-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
             .fin-person-btn.active { background: var(--accent-light); color: var(--accent-color); font-weight: 600; }
-            .fin-person-btn i { width: 20px; text-align: center; }
+            .fin-person-btn i { width: 18px; text-align: center; }
             
-            .fin-kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--spacing-4); margin-bottom: var(--spacing-4); }
-            .fin-kpi { display: flex; align-items: center; gap: var(--spacing-3); }
-            .fin-kpi-icon { width: 48px; height: 48px; border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center; font-size: 1.2rem; }
-            .fin-kpi-icon.green { background: rgba(67,160,71,0.1); color: var(--clr-green); }
-            .fin-kpi-icon.red { background: rgba(229,57,53,0.1); color: var(--clr-red); }
-            .fin-kpi-icon.blue { background: rgba(35,131,226,0.1); color: var(--clr-blue); }
-            .fin-kpi-icon.orange { background: rgba(244,81,30,0.1); color: var(--clr-orange); }
-            .fin-kpi-data h4 { font-size: 0.8rem; color: var(--text-muted); font-weight: 500; text-transform: uppercase; letter-spacing: 0.03em; margin-bottom: 4px; }
-            .fin-kpi-data .value { font-size: 1.5rem; font-weight: 700; color: var(--text-primary); }
+            .fin-main { display: flex; flex-direction: column; gap: var(--spacing-4); }
+
+            /* KPI Grid & Cards */
+            .fin-kpi-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: var(--spacing-3); }
+            .fin-kpi { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 16px 18px; display: flex; flex-direction: column; justify-content: space-between; gap: 10px; transition: transform 0.2s ease, box-shadow 0.2s ease; }
+            .fin-kpi:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+            .fin-kpi-header { display: flex; justify-content: space-between; align-items: center; }
+            .fin-kpi-header h4 { font-size: 0.72rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; margin: 0; }
+            .fin-kpi-icon { width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 0.95rem; }
+            .fin-kpi-icon.green { background: rgba(67,160,71,0.12); color: var(--clr-green); }
+            .fin-kpi-icon.red { background: rgba(229,57,53,0.12); color: var(--clr-red); }
+            .fin-kpi-icon.blue { background: rgba(35,131,226,0.12); color: var(--clr-blue); }
+            .fin-kpi-icon.purple { background: rgba(156,39,176,0.12); color: #ab47bc; }
+            .fin-kpi-icon.orange { background: rgba(244,81,30,0.12); color: var(--clr-orange); }
+            .fin-kpi-data .value { font-size: 1.35rem; font-weight: 700; letter-spacing: -0.02em; line-height: 1.2; font-variant-numeric: tabular-nums; }
             .fin-kpi-data .value.positive { color: var(--clr-green); }
             .fin-kpi-data .value.negative { color: var(--clr-red); }
             .fin-kpi-data .value.warning { color: var(--clr-orange); }
-            
-            .fin-add-form { display: grid; grid-template-columns: 1fr 1fr; gap: var(--spacing-3); margin-bottom: var(--spacing-3); }
-            .fin-form-input { padding: 10px 14px; background: var(--bg-input); border: 1px solid var(--border-color); border-radius: var(--radius-sm); color: var(--text-primary); font-size: 0.9rem; font-family: var(--font-sans); width: 100%; box-sizing: border-box; }
-            .fin-form-input:focus { border-color: var(--accent-color); outline: none; }
-            
-            .fin-type-toggle { display: flex; gap: var(--spacing-2); margin-bottom: var(--spacing-4); background: var(--bg-input); padding: 4px; border-radius: var(--radius-sm); }
-            .fin-type-btn { flex: 1; padding: 10px; border: none; border-radius: var(--radius-sm); text-align: center; cursor: pointer; font-weight: 500; font-size: 0.9rem; transition: all var(--transition-fast); background: transparent; color: var(--text-secondary); }
-            .fin-type-btn.active { background: var(--bg-card); color: var(--text-primary); box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-            
+
+            /* Top Section Header & Segment Toggle */
+            .fin-section-header { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; margin-bottom: 2px; }
+            .fin-section-title { font-size: 1.1rem; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 8px; margin: 0; }
+            .fin-type-toggle { display: inline-flex; background: var(--bg-input); padding: 4px; border-radius: 30px; border: 1px solid var(--border-color); gap: 4px; }
+            .fin-type-btn { padding: 6px 20px; border-radius: 20px; border: none; cursor: pointer; font-weight: 600; font-size: 0.85rem; transition: all 0.2s ease; background: transparent; color: var(--text-muted); }
+            .fin-type-btn:hover { color: var(--text-primary); }
+            .fin-type-btn.active { background: var(--accent-color); color: #ffffff; box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
+
+            /* Panels Grid & Form Styling */
+            .fin-panels-grid { display: grid; grid-template-columns: 1.15fr 1fr; gap: var(--spacing-4); align-items: start; }
+            .fin-add-form { display: flex; flex-direction: column; gap: 12px; }
+            .fin-form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+            .fin-form-input { padding: 10px 14px; background: var(--bg-input); border: 1px solid var(--border-color); border-radius: var(--radius-md); color: var(--text-primary); font-size: 0.88rem; font-family: var(--font-sans); width: 100%; box-sizing: border-box; transition: border-color 0.2s ease, box-shadow 0.2s ease; }
+            .fin-form-input:focus { border-color: var(--accent-color); box-shadow: 0 0 0 2px rgba(35,131,226, 0.2); outline: none; }
+
             .fin-badge { padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; }
             .fin-badge.income { background: rgba(67,160,71,0.1); color: var(--clr-green); }
             .fin-badge.expense { background: rgba(229,57,53,0.1); color: var(--clr-red); }
@@ -111,63 +150,22 @@ export class FinanceManager {
             .table-responsive { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 8px; }
             .data-table { width: 100%; min-width: 600px; border-collapse: collapse; }
             .data-table th, .data-table td { white-space: nowrap; }
-            .fin-panels-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--spacing-4); margin-bottom: var(--spacing-4); }
             
-            @media (max-width: 900px) { 
+            @media (max-width: 1200px) { 
+                .fin-kpi-grid { grid-template-columns: repeat(2, 1fr); }
+            }
+            @media (max-width: 992px) { 
                 .fin-container { grid-template-columns: 1fr; }
+                .fin-panels-grid { grid-template-columns: 1fr; }
                 .fin-sidebar { display: flex; overflow-x: auto; padding: var(--spacing-3); gap: var(--spacing-2); align-items: center; white-space: nowrap; }
                 .fin-sidebar h3 { margin-bottom: 0; margin-right: var(--spacing-3); }
                 .fin-person-btn { width: auto; margin-bottom: 0; white-space: nowrap; }
                 .loan-stats { grid-template-columns: 1fr 1fr; }
-                .fin-panels-grid { grid-template-columns: 1fr; }
             }
             @media (max-width: 600px) {
-                .fin-add-form { grid-template-columns: 1fr; }
-                .loan-stats { grid-template-columns: 1fr; }
-                .fin-kpi-grid { grid-template-columns: 1fr 1fr; }
-                
-                /* Responsive Card Layout for Tables */
-                .data-table, .data-table thead, .data-table tbody, .data-table th, .data-table td, .data-table tr { 
-                    display: block; 
-                }
-                .data-table { min-width: 100%; border: none; }
-                .data-table thead tr { 
-                    position: absolute; top: -9999px; left: -9999px;
-                }
-                .data-table tr { 
-                    border: 1px solid var(--border-color); 
-                    margin-bottom: var(--spacing-3); 
-                    border-radius: var(--radius-sm); 
-                    overflow: hidden; 
-                }
-                .data-table td { 
-                    border: none;
-                    border-bottom: 1px solid var(--border-light); 
-                    position: relative;
-                    padding-left: 40%;
-                    text-align: right;
-                    white-space: normal;
-                }
-                .data-table td:before { 
-                    content: attr(data-label);
-                    position: absolute;
-                    left: 16px;
-                    width: 35%; 
-                    padding-right: 10px; 
-                    white-space: nowrap;
-                    text-align: left;
-                    font-weight: 600;
-                    color: var(--text-muted);
-                    text-transform: uppercase;
-                    font-size: 0.75rem;
-                }
-                /* Category header rows should not have card styling */
-                .data-table tr.fin-group-header, .data-table tr.fin-person-header { border: none; background: transparent; }
-                .data-table tr.fin-group-header td, .data-table tr.fin-person-header td { padding-left: 16px; text-align: left; border: none; }
-                .data-table tr.fin-group-header td:before, .data-table tr.fin-person-header td:before { content: none; }
-            }
-            @media (max-width: 480px) {
                 .fin-kpi-grid { grid-template-columns: 1fr; }
+                .fin-form-row { grid-template-columns: 1fr; }
+                .fin-section-header { flex-direction: column; align-items: flex-start; gap: 10px; }
             }
         `;
         document.head.appendChild(style);
@@ -194,6 +192,7 @@ export class FinanceManager {
         const expenses = txns.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
         const balance = income - expenses;
         const totalDebt = loans.reduce((s, l) => s + l.amountLeftToPay, 0);
+        const totalMonthlyEMI = loans.reduce((s, l) => s + (parseFloat(l.emiPerMonth) || 0), 0);
         const totalInterest = txns.reduce((s, t) => s + (parseFloat(t.interest) || 0), 0);
 
         // Categories Visualization
@@ -231,7 +230,6 @@ export class FinanceManager {
             catHTML = '<div class="fin-empty">No expenses to visualize.</div>';
         }
 
-        // Active Loans HTML
         let loansHTML = '';
         if (loans.length === 0) {
             loansHTML = '<div class="fin-empty">No active loans.</div>';
@@ -240,11 +238,11 @@ export class FinanceManager {
                 const paid = l.amountSanctioned - l.amountLeftToPay;
                 const pct = Math.min(100, Math.max(0, (paid / l.amountSanctioned) * 100));
                 return `
-                    <div class="loan-card">
+                    <div class="loan-card card" style="margin-bottom: var(--spacing-4);">
                         <div class="loan-header">
                             <span class="loan-title"><i class="fa-solid fa-building-columns" style="color:var(--clr-orange); margin-right:8px;"></i>${l.title} 
                                 ${l.bank ? `<span class="person-tag interest-tag"><i class="fa-solid fa-building"></i> ${l.bank}</span>` : ''}
-                                ${this.currentPersonFilter === 'All' ? `<span class="person-tag"><i class="fa-solid fa-user"></i> ${l.person}</span>` : ''}
+                                ${this.currentPersonFilter === 'All' && l.person ? `<span class="person-tag"><i class="fa-solid fa-user"></i> ${l.person}</span>` : ''}
                             </span>
                             <div style="display:flex; gap:8px;">
                                 <button class="fin-edit-loan btn btn-secondary" data-id="${l.id}" title="Edit Loan" style="padding:4px 8px; font-size:0.8rem; background:transparent; border-color:var(--border-light); color:var(--text-muted);"><i class="fa-solid fa-pen"></i></button>
@@ -265,48 +263,81 @@ export class FinanceManager {
         }
 
         // Transaction table
-        const sorted = [...txns].sort((a, b) => new Date(b.date) - new Date(a.date));
+        const formatTxnDate = (dateStr) => {
+            if (!dateStr) return '';
+            const raw = String(dateStr).trim();
+            const cleanStr = raw.includes('T') ? raw.split('T')[0] : raw;
+            const d = new Date(cleanStr + 'T00:00:00');
+            if (isNaN(d.getTime())) return raw;
+            return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+        };
+
+        const sorted = [...txns].sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
         let tableHTML = '';
         if (sorted.length === 0) {
             tableHTML = '<div class="fin-empty">No transactions logged yet.</div>';
         } else {
             const renderRows = (groupTxns, title) => {
-                if (groupTxns.length === 0) return '';
+                if (!groupTxns || groupTxns.length === 0) return '';
                 return `
                     <tbody>
                         <tr class="fin-group-header"><td colspan="6" style="background: rgba(255,255,255,0.03); font-weight: 600; padding: 10px 16px; color: var(--text-primary); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em;">${title}</td></tr>
-                        ${groupTxns.map(t => `
+                        ${groupTxns.map(t => {
+                            const itemTitle = t.title || t.description || 'Untitled Transaction';
+                            return `
                             <tr>
-                                <td data-label="Type"><span class="fin-badge ${t.type}">${t.type === 'income' ? '↑ Income' : '↓ Expense'}</span></td>
+                                <td data-label="Type"><span class="fin-badge ${t.type || 'expense'}">${(t.type || 'expense') === 'income' ? '↑ Income' : '↓ Expense'}</span></td>
                                 <td data-label="Title">
-                                    <div style="margin-bottom: 4px;">${t.title}</div>
+                                    <div style="margin-bottom: 4px; font-weight: 600; color: var(--text-primary);">${itemTitle}</div>
                                     <div>
-                                        ${this.currentPersonFilter === 'All' ? `<span class="person-tag"><i class="fa-solid fa-user"></i> ${t.person}</span>` : ''}
+                                        ${this.currentPersonFilter === 'All' && t.person ? `<span class="person-tag"><i class="fa-solid fa-user"></i> ${t.person}</span>` : ''}
                                         ${t.interest > 0 ? `<span class="person-tag interest-tag">Includes ${this.formatCurrency(t.interest)} Interest</span>` : ''}
                                     </div>
                                 </td>
-                                <td data-label="Category">${t.category}</td>
-                                <td data-label="Amount" class="fin-amount ${t.type}">${t.type === 'income' ? '+' : '-'}${this.formatCurrency(t.amount)}</td>
-                                <td data-label="Date">${new Date(t.date + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</td>
+                                <td data-label="Category">${t.category || 'General'}</td>
+                                <td data-label="Amount" class="fin-amount ${t.type || 'expense'}">${(t.type || 'expense') === 'income' ? '+' : '-'}${this.formatCurrency(t.amount || 0)}</td>
+                                <td data-label="Date">${formatTxnDate(t.date)}</td>
                                 <td data-label="Actions" style="text-align: right;">
-                                    <button class="fin-edit" data-id="${t.id}" style="background:none; border:none; color:var(--text-muted); cursor:pointer; margin-right:8px; padding: 4px;"><i class="fa-solid fa-pen"></i></button>
-                                    <button class="fin-del" data-id="${t.id}" style="padding: 4px;"><i class="fa-solid fa-trash"></i></button>
+                                    <button class="fin-edit" data-id="${t.id}" style="background:none; border:none; color:var(--text-muted); cursor:pointer; margin-right:8px; padding: 4px;" title="Edit Transaction"><i class="fa-solid fa-pen"></i></button>
+                                    <button class="fin-del" data-id="${t.id}" style="padding: 4px;" title="Delete Transaction"><i class="fa-solid fa-trash"></i></button>
                                 </td>
                             </tr>
-                        `).join('')}
+                        `;
+                        }).join('')}
                     </tbody>
                 `;
             };
 
-            const uniquePersons = [...new Set(sorted.map(t => t.person || 'Main'))].sort();
+            const uniquePersons = [...new Set(sorted.map(t => t.person).filter(p => p && p !== 'Main'))].sort();
             
             let tbodyHTML = '';
             
+            const generalTxns = sorted.filter(t => !t.person || t.person === 'Main');
+            if (generalTxns.length > 0) {
+                if (uniquePersons.length > 0 && this.currentPersonFilter === 'All') {
+                    tbodyHTML += `
+                        <tbody>
+                            <tr class="fin-person-header">
+                                <td colspan="6" style="background: var(--bg-sidebar); padding: 16px 16px 8px 16px; border-bottom: 2px solid var(--border-color);">
+                                    <h3 style="margin: 0; color: var(--accent-color); font-size: 1.1rem; font-weight: 700;"><i class="fa-solid fa-user"></i> Personal / General</h3>
+                                </td>
+                            </tr>
+                        </tbody>
+                    `;
+                }
+                const incomes = generalTxns.filter(t => t.type === 'income');
+                const loans = generalTxns.filter(t => (t.type === 'expense' || !t.type) && (t.category === 'EMI' || t.category === 'Credit Card' || (t.title || t.description || '').toLowerCase().includes('loan')));
+                const others = generalTxns.filter(t => (t.type === 'expense' || !t.type) && !(t.category === 'EMI' || t.category === 'Credit Card' || (t.title || t.description || '').toLowerCase().includes('loan')));
+
+                tbodyHTML += renderRows(incomes, 'Income');
+                tbodyHTML += renderRows(loans, 'Expenses: Loans & Cards');
+                tbodyHTML += renderRows(others, 'Expenses: Other');
+            }
+
             uniquePersons.forEach(person => {
-                const pTxns = sorted.filter(t => (t.person || 'Main') === person);
+                const pTxns = sorted.filter(t => t.person === person);
                 if (pTxns.length === 0) return;
                 
-                // Add a person header row if we are showing 'All' persons
                 if (this.currentPersonFilter === 'All') {
                     tbodyHTML += `
                         <tbody>
@@ -320,213 +351,278 @@ export class FinanceManager {
                 }
 
                 const incomes = pTxns.filter(t => t.type === 'income');
-                const loans = pTxns.filter(t => t.type === 'expense' && (t.category === 'EMI' || t.category === 'Credit Card' || (t.title && t.title.toLowerCase().includes('loan'))));
-                const others = pTxns.filter(t => t.type === 'expense' && !(t.category === 'EMI' || t.category === 'Credit Card' || (t.title && t.title.toLowerCase().includes('loan'))));
+                const loans = pTxns.filter(t => (t.type === 'expense' || !t.type) && (t.category === 'EMI' || t.category === 'Credit Card' || (t.title || t.description || '').toLowerCase().includes('loan')));
+                const others = pTxns.filter(t => (t.type === 'expense' || !t.type) && !(t.category === 'EMI' || t.category === 'Credit Card' || (t.title || t.description || '').toLowerCase().includes('loan')));
 
                 tbodyHTML += renderRows(incomes, 'Income');
                 tbodyHTML += renderRows(loans, 'Expenses: Loans & Cards');
                 tbodyHTML += renderRows(others, 'Expenses: Other');
             });
 
+            if (!tbodyHTML) {
+                tbodyHTML = `<tbody><tr><td colspan="6" style="text-align:center; padding: 24px; color: var(--text-muted);">No entries found for this selection.</td></tr></tbody>`;
+            }
+
             tableHTML = `
-                <div class="table-responsive">
-                    <table class="data-table">
+                <div class="table-responsive" style="width: 100%; overflow-x: auto;">
+                    <table class="data-table" style="width: 100%;">
                         <thead><tr>
-                            <th>Type</th><th>Title</th><th>Category</th><th>Amount</th><th>Date</th><th></th>
+                            <th>Type</th><th>Title</th><th>Category</th><th>Amount</th><th>Date</th><th style="text-align:right;">Actions</th>
                         </tr></thead>
                         ${tbodyHTML}
                     </table>
                 </div>
             `;
         }
-
         // Form Fields HTML (Dynamic based on entry type)
         let formHTML = '';
         const loanOptionsHTML = loans.length > 0 
             ? `<optgroup label="Active Loans">${loans.map(l => `<option value="${l.id}">${l.title}</option>`).join('')}</optgroup>`
             : '';
-
-        if (this.currentEntryType === 'loan') {
-            formHTML = `
-                <input class="fin-form-input" id="fin-title" placeholder="Loan Title (e.g. Home Loan)" type="text">
-                <input class="fin-form-input" id="fin-bank" placeholder="Bank Name (e.g. SBI, HDFC)" type="text">
-                <input class="fin-form-input" id="fin-sanctioned" placeholder="Amount Sanctioned (₹)" type="number" min="0" step="0.01">
-                <input class="fin-form-input" id="fin-paid-already" placeholder="Amount Already Paid (₹) (Optional)" type="number" min="0" step="0.01">
-                <input class="fin-form-input" id="fin-emi" placeholder="EMI per month (₹)" type="number" min="0" step="0.01">
-                <input class="fin-form-input" id="fin-rate" placeholder="Interest Rate (%)" type="number" min="0" step="0.1">
-                <input class="fin-form-input" id="fin-emi-date" placeholder="EMI Due Date (1-31)" type="number" min="1" max="31">
-            `;
-        } else {
-            formHTML = `
-                <input class="fin-form-input" id="fin-title" placeholder="Title (e.g. June Salary, Rent)" type="text">
-                <input class="fin-form-input" id="fin-amount" placeholder="Total Amount (₹)" type="number" min="0" step="0.01">
-                
-                <select class="fin-form-input" id="fin-category">
-                    ${this.currentEntryType === 'income' ? `
-                        <option value="Salary">💰 Salary (Per Month)</option>
-                        <option value="Freelance">💻 Freelance</option>
-                        <option value="Other">📦 Other Income</option>
-                    ` : `
-                        <option value="Rent">🏠 Rent</option>
-                        <option value="EMI">💳 EMI / Loan Payment</option>
-                        <option value="Credit Card">💳 Credit Card Bill</option>
-                        <option value="Food">🍔 Food</option>
-                        <option value="Transport">🚗 Transport</option>
-                        <option value="Entertainment">🎬 Entertainment</option>
-                        <option value="Bills">📄 Bills</option>
-                        <option value="Shopping">🛍️ Shopping</option>
-                        <option value="Health">🏥 Health</option>
-                        <option value="Other">📦 Other</option>
-                    `}
-                </select>
-                
-                ${this.currentEntryType === 'expense' ? `
-                    <select class="fin-form-input" id="fin-linked-loan" style="display: none;">
-                        <option value="">-- Select Linked Loan (Optional) --</option>
-                        ${loanOptionsHTML}
-                    </select>
-                    <input class="fin-form-input" id="fin-interest" placeholder="Interest Part (₹)" type="number" min="0" step="0.01" style="display: none;">
-                ` : ''}
-            `;
-        }
-
-        const personDatalist = persons.map(p => `<option value="${p}">`).join('');
-
         container.innerHTML = `
-            <div class="view-header">
-                <div>
-                    <h1>Finance Tracker ${this.currentPersonFilter !== 'All' ? `<span style="color: var(--accent-color); font-weight: 800;">— ${this.currentPersonFilter}</span>` : ''}</h1>
-                    <p class="subtitle text-muted">Audit household salaries, loans, rent, and expenses</p>
-                </div>
-            </div>
-
             <div class="fin-container">
-                <!-- Left Sidebar -->
                 <div class="fin-sidebar">
-                    <h3>Household Members</h3>
-                    <div class="fin-people-list">
-                        <button class="fin-person-btn ${this.currentPersonFilter === 'All' ? 'active' : ''}" data-person="All"><i class="fa-solid fa-users"></i> All Members</button>
-                        ${persons.map(p => `
-                            <button class="fin-person-btn ${this.currentPersonFilter === p ? 'active' : ''}" data-person="${p}"><i class="fa-solid fa-user"></i> ${p}</button>
-                        `).join('')}
+                    <h3>Filter by Person</h3>
+                    <button class="fin-person-btn ${this.currentPersonFilter === 'All' ? 'active' : ''}" data-person="All">
+                        <i class="fa-solid fa-users"></i> All Members
+                    </button>
+                    ${persons.map(p => `
+                        <button class="fin-person-btn ${this.currentPersonFilter === p ? 'active' : ''}" data-person="${p}">
+                            <i class="fa-solid fa-user"></i> ${p}
+                        </button>
+                    `).join('')}
+                    
+                    <div style="border-top: 1px solid var(--border-color); margin-top: var(--spacing-3); padding-top: var(--spacing-2);">
+                        <button class="fin-person-btn" id="fin-sidebar-add-person" style="color: var(--accent-color); font-weight: 600;">
+                            <i class="fa-solid fa-user-plus"></i> + Add Person
+                        </button>
                     </div>
                 </div>
-
-                <!-- Main Content -->
+                
                 <div class="fin-main">
+                    <!-- Refined KPI Grid -->
                     <div class="fin-kpi-grid">
-                        <div class="card"><div class="card-body"><div class="fin-kpi">
-                            <div class="fin-kpi-icon green"><i class="fa-solid fa-arrow-trend-up"></i></div>
-                            <div class="fin-kpi-data"><h4>${this.currentPersonFilter} Income</h4><div class="value positive">${this.formatCurrency(income)}</div></div>
-                        </div></div></div>
-                        <div class="card"><div class="card-body"><div class="fin-kpi">
-                            <div class="fin-kpi-icon red"><i class="fa-solid fa-arrow-trend-down"></i></div>
-                            <div class="fin-kpi-data"><h4>${this.currentPersonFilter} Expenses</h4><div class="value negative">${this.formatCurrency(expenses)}</div></div>
-                        </div></div></div>
-                        <div class="card"><div class="card-body"><div class="fin-kpi">
-                            <div class="fin-kpi-icon blue"><i class="fa-solid fa-wallet"></i></div>
-                            <div class="fin-kpi-data"><h4>${this.currentPersonFilter} Balance</h4><div class="value ${balance >= 0 ? 'positive' : 'negative'}">${balance >= 0 ? '+' : '-'}${this.formatCurrency(balance)}</div></div>
-                        </div></div></div>
-                        <div class="card"><div class="card-body"><div class="fin-kpi">
-                            <div class="fin-kpi-icon orange"><i class="fa-solid fa-building-columns"></i></div>
-                            <div class="fin-kpi-data"><h4>Total Debt / Loans</h4><div class="value warning">${this.formatCurrency(totalDebt)}</div></div>
-                        </div></div></div>
+                        <div class="fin-kpi">
+                            <div class="fin-kpi-header">
+                                <h4>Total Income</h4>
+                                <div class="fin-kpi-icon green"><i class="fa-solid fa-arrow-trend-up"></i></div>
+                            </div>
+                            <div class="fin-kpi-data"><div class="value positive">${this.formatCurrency(income)}</div></div>
+                        </div>
+                        <div class="fin-kpi">
+                            <div class="fin-kpi-header">
+                                <h4>Total Expenses</h4>
+                                <div class="fin-kpi-icon red"><i class="fa-solid fa-arrow-trend-down"></i></div>
+                            </div>
+                            <div class="fin-kpi-data"><div class="value negative">${this.formatCurrency(expenses)}</div></div>
+                        </div>
+                        <div class="fin-kpi">
+                            <div class="fin-kpi-header">
+                                <h4>Net Balance</h4>
+                                <div class="fin-kpi-icon blue"><i class="fa-solid fa-scale-balanced"></i></div>
+                            </div>
+                            <div class="fin-kpi-data"><div class="value ${balance >= 0 ? 'positive' : 'negative'}">${this.formatCurrency(balance)}</div></div>
+                        </div>
+                        <div class="fin-kpi">
+                            <div class="fin-kpi-header">
+                                <h4>Monthly EMI</h4>
+                                <div class="fin-kpi-icon purple"><i class="fa-solid fa-calendar-check"></i></div>
+                            </div>
+                            <div class="fin-kpi-data"><div class="value negative">${this.formatCurrency(totalMonthlyEMI)}</div></div>
+                        </div>
+                        <div class="fin-kpi">
+                            <div class="fin-kpi-header">
+                                <h4>Total Debt</h4>
+                                <div class="fin-kpi-icon orange"><i class="fa-solid fa-building-columns"></i></div>
+                            </div>
+                            <div class="fin-kpi-data"><div class="value warning">${this.formatCurrency(totalDebt)}</div></div>
+                        </div>
+                    </div>
+                    
+                    <!-- Clean Section Header with Compact Pill Segment Toggle -->
+                    <div class="fin-section-header">
+                        <h2 class="fin-section-title">
+                            <i class="fa-solid fa-chart-line" style="color: var(--accent-color);"></i>
+                            ${this.currentViewMode === 'expense' ? 'Expenses Management' : (this.currentViewMode === 'income' ? 'Income Management' : (this.currentViewMode === 'loans' ? 'Loans & Liabilities' : 'Bank Statement Analyzer'))}
+                        </h2>
+                        <div class="fin-type-toggle">
+                            <button class="fin-type-btn ${this.currentViewMode === 'expense' ? 'active' : ''}" data-type="expense">Expenses</button>
+                            <button class="fin-type-btn ${this.currentViewMode === 'income' ? 'active' : ''}" data-type="income">Income</button>
+                            <button class="fin-type-btn ${this.currentViewMode === 'loans' ? 'active' : ''}" data-type="loans">Loans</button>
+                            <button class="fin-type-btn ${this.currentViewMode === 'analyzer' ? 'active' : ''}" data-type="analyzer"><i class="fa-solid fa-file-invoice-dollar"></i> Statement Analyzer</button>
+                        </div>
                     </div>
 
-                    <div class="fin-panels-grid">
-                        <div class="card">
-                            <div class="card-header"><h2><i class="fa-solid fa-plus-circle"></i> Add Entry</h2></div>
-                            <div class="card-body">
-                                <div class="fin-type-toggle">
-                                    <button class="fin-type-btn ${this.currentEntryType === 'expense' ? 'active' : ''}" data-type="expense">Expense</button>
-                                    <button class="fin-type-btn ${this.currentEntryType === 'income' ? 'active' : ''}" data-type="income">Income</button>
-                                    <button class="fin-type-btn ${this.currentEntryType === 'loan' ? 'active' : ''}" data-type="loan">New Loan</button>
+                    ${this.currentViewMode === 'analyzer' ? `
+                        <div id="fin-statement-analyzer-container" style="width: 100%;"></div>
+                    ` : `
+                        <div class="fin-panels-grid">
+                            ${this.currentViewMode === 'loans' ? `
+                                <div class="card" style="grid-column: 1 / -1;">
+                                    <div class="card-header"><h2><i class="fa-solid fa-plus-circle"></i> Add New Loan</h2></div>
+                                    <div class="card-body">
+                                        <div class="fin-add-form">
+                                            <div class="fin-form-row">
+                                                <input class="fin-form-input" id="fin-title" placeholder="Loan Title (e.g. Home Loan)" type="text">
+                                                <input class="fin-form-input" id="fin-bank" placeholder="Bank Name (e.g. SBI, HDFC)" type="text">
+                                            </div>
+                                            <div class="fin-form-row">
+                                                <input class="fin-form-input" id="fin-sanctioned" placeholder="Amount Sanctioned (₹)" type="text">
+                                                <input class="fin-form-input" id="fin-paid-already" placeholder="Amount Already Paid (₹) (Optional)" type="text">
+                                            </div>
+                                            <div class="fin-form-row">
+                                                <input class="fin-form-input" id="fin-emi" placeholder="EMI per month (₹)" type="text">
+                                                <input class="fin-form-input" id="fin-rate" placeholder="Interest Rate (%)" type="number" min="0" step="0.1">
+                                            </div>
+                                            <div class="fin-form-row">
+                                                <input class="fin-form-input" id="fin-emi-date" placeholder="EMI Due Date (1-31)" type="number" min="1" max="31">
+                                                <select class="fin-form-input" id="fin-person">
+                                                    <option value="">-- Personal / General --</option>
+                                                    ${persons.map(p => `<option value="${p}" ${this.currentPersonFilter === p ? 'selected' : ''}>${p}</option>`).join('')}
+                                                    <option value="_NEW_" style="font-weight: bold; color: var(--accent-color);">+ Add New Person...</option>
+                                                </select>
+                                            </div>
+                                            <button class="btn btn-primary" id="fin-add-btn" style="justify-content: center; margin-top: 4px;"><i class="fa-solid fa-check"></i> Add Loan</button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div style="grid-column: 1 / -1; margin-top: var(--spacing-2);">
+                                    ${loansHTML}
+                                </div>
+                            ` : `
+                                <div class="card">
+                                    <div class="card-header"><h2><i class="fa-solid fa-plus-circle"></i> Add ${this.currentViewMode === 'expense' ? 'Expense' : 'Income'}</h2></div>
+                                    <div class="card-body">
+                                        <div class="fin-add-form">
+                                            <input class="fin-form-input" id="fin-title" placeholder="Title (e.g. June Salary, Rent)" type="text">
+                                            <div class="fin-form-row">
+                                                <input class="fin-form-input" id="fin-amount" placeholder="Total Amount (₹)" type="text">
+                                                <select class="fin-form-input" id="fin-category">
+                                                    ${this.currentViewMode === 'income' ? `
+                                                        <option value="Salary">💰 Salary (Per Month)</option>
+                                                        <option value="Freelance">💻 Freelance</option>
+                                                        <option value="Other">📦 Other Income</option>
+                                                    ` : `
+                                                        <option value="Rent">🏠 Rent</option>
+                                                        <option value="EMI">💳 EMI / Loan Payment</option>
+                                                        <option value="Credit Card">💳 Credit Card Bill</option>
+                                                        <option value="Food">🍔 Food</option>
+                                                        <option value="Transport">🚗 Transport</option>
+                                                        <option value="Entertainment">🎬 Entertainment</option>
+                                                        <option value="Bills">📄 Bills</option>
+                                                        <option value="Shopping">🛍️ Shopping</option>
+                                                        <option value="Health">🏥 Health</option>
+                                                        <option value="Other">📦 Other</option>
+                                                    `}
+                                                </select>
+                                            </div>
+                                            
+                                            ${this.currentViewMode === 'expense' ? `
+                                                <div class="fin-form-row">
+                                                    <select class="fin-form-input" id="fin-linked-loan" style="display: none;">
+                                                        <option value="">-- Select Linked Loan (Optional) --</option>
+                                                        ${loanOptionsHTML}
+                                                    </select>
+                                                    <input class="fin-form-input" id="fin-interest" placeholder="Interest Part (₹)" type="text" style="display: none;">
+                                                </div>
+                                            ` : ''}
+                                            
+                                            <div class="fin-form-row">
+                                                <select class="fin-form-input" id="fin-person">
+                                                    <option value="">-- Personal / General --</option>
+                                                    ${persons.map(p => `<option value="${p}" ${this.currentPersonFilter === p ? 'selected' : ''}>${p}</option>`).join('')}
+                                                    <option value="_NEW_" style="font-weight: bold; color: var(--accent-color);">+ Add New Person...</option>
+                                                </select>
+                                                <input class="fin-form-input" id="fin-date" type="date" value="${new Date().toISOString().split('T')[0]}">
+                                            </div>
+                                            <button class="btn btn-primary" id="fin-add-btn" style="justify-content: center; margin-top: 4px;"><i class="fa-solid fa-check"></i> Save Entry</button>
+                                        </div>
+                                    </div>
                                 </div>
                                 
-                                <div class="fin-add-form">
-                                    ${formHTML}
-                                    
-                                    <select class="fin-form-input" id="fin-person">
-                                        <option value="Main">Main</option>
-                                        ${persons.filter(p => p !== 'Main').map(p => `<option value="${p}" ${this.currentPersonFilter === p ? 'selected' : ''}>${p}</option>`).join('')}
-                                        <option value="_NEW_" style="font-weight: bold; color: var(--accent-color);">+ Add New Person...</option>
-                                    </select>
-                                    
-                                    <input class="fin-form-input" id="fin-date" type="date" value="${new Date().toISOString().split('T')[0]}" style="grid-column: 1 / -1;">
-                                    <button class="btn btn-primary" id="fin-add-btn" style="grid-column: 1 / -1; justify-content: center;"><i class="fa-solid fa-check"></i> Save Entry</button>
+                                <div class="card">
+                                    <div class="card-header"><h2><i class="fa-solid fa-chart-pie"></i> ${this.currentPersonFilter} Expenses</h2></div>
+                                    <div class="card-body">${catHTML}</div>
                                 </div>
+                            `}
+                        </div>
+
+                        <div class="card" style="margin-top: var(--spacing-3);">
+                            <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
+                                <h2><i class="fa-solid fa-receipt"></i> ${this.currentPersonFilter === 'All' ? 'Transactions & Entries' : `${this.currentPersonFilter}'s Transactions`}</h2>
+                            </div>
+                            <div class="card-body" style="padding:0;">
+                                ${tableHTML}
                             </div>
                         </div>
-                        
-                        <div class="card">
-                            <div class="card-header"><h2><i class="fa-solid fa-chart-pie"></i> ${this.currentPersonFilter} Expenses</h2></div>
-                            <div class="card-body">${catHTML}</div>
-                        </div>
-                    </div>
-
-                    ${loans.length > 0 ? `
-                        <div class="card" style="margin-bottom: var(--spacing-4);">
-                            <div class="card-header"><h2><i class="fa-solid fa-piggy-bank"></i> Active Loans</h2></div>
-                            <div class="card-body">${loansHTML}</div>
-                        </div>
-                    ` : ''}
-
-                    <div class="card">
-                        <div class="card-header"><h2><i class="fa-solid fa-list"></i> Transactions Log</h2></div>
-                        <div class="card-body">${tableHTML}</div>
-                    </div>
+                    `}
                 </div>
             </div>
         `;
 
-        this.bindEvents();
-        this.updateFormDynamicFields();
-    }
+        if (this.currentViewMode === 'analyzer') {
+            this.bsa.init(document.getElementById('fin-statement-analyzer-container'));
+        }
 
-    updateFormDynamicFields() {
-        if (this.currentEntryType !== 'expense') return;
-        const catSelect = document.getElementById('fin-category');
-        const intInput = document.getElementById('fin-interest');
-        const loanSelect = document.getElementById('fin-linked-loan');
-        
-        if (!catSelect) return;
-        
-        const updateVisibility = () => {
-            const val = catSelect.value;
-            if (val === 'EMI' || val === 'Credit Card') {
-                intInput.style.display = 'block';
-                if (val === 'EMI') {
-                    loanSelect.style.display = 'block';
-                } else {
-                    loanSelect.style.display = 'none';
-                    loanSelect.value = '';
-                }
-            } else {
-                intInput.style.display = 'none';
-                loanSelect.style.display = 'none';
-                intInput.value = '';
-                loanSelect.value = '';
-            }
-        };
-        
-        catSelect.addEventListener('change', updateVisibility);
-        updateVisibility();
-    }
-
-    bindEvents() {
-        // Sidebar Person Selection
-        document.querySelectorAll('.fin-person-btn').forEach(btn => {
+        // Sidebar Person Filter Buttons
+        document.querySelectorAll('.fin-person-btn[data-person]').forEach(btn => {
             btn.addEventListener('click', (e) => {
-                this.currentPersonFilter = e.currentTarget.dataset.person;
-                this.render();
+                const person = e.currentTarget.dataset.person;
+                if (person) {
+                    this.currentPersonFilter = person;
+                    sessionStorage.setItem('prodos_active_family_member', person);
+                    this.render();
+                }
             });
         });
 
+        // Add Person from Sidebar
+        document.getElementById('fin-sidebar-add-person')?.addEventListener('click', async () => {
+            const result = await showFormModal({
+                title: 'Add Family Member / Person',
+                icon: 'fa-solid fa-user-plus',
+                submitLabel: 'Add Person',
+                fields: [
+                    { key: 'name', label: 'Person Name', type: 'text', placeholder: 'e.g. Dad, Sarah, Alex', required: true }
+                ]
+            });
+
+            if (result && result.name.trim()) {
+                const name = result.name.trim();
+                
+                // Save to custom_persons storage
+                const customPersons = this.storage.get('custom_persons') || [];
+                if (!customPersons.includes(name)) {
+                    customPersons.push(name);
+                    this.storage.set('custom_persons', customPersons);
+                }
+
+                // Also add to family members in prodos_family_data if not exists
+                try {
+                    let familyData = JSON.parse(localStorage.getItem('prodos_family_data')) || { members: [] };
+                    if (!familyData.members) familyData.members = [];
+                    if (!familyData.members.some(m => m.name.toLowerCase() === name.toLowerCase())) {
+                        familyData.members.push({
+                            memberId: `mem_${Date.now()}`,
+                            name: name,
+                            relationship: 'Member'
+                        });
+                        localStorage.setItem('prodos_family_data', JSON.stringify(familyData));
+                    }
+                } catch (e) {}
+
+                showToast(`Added ${name}!`);
+                this.currentPersonFilter = name;
+                sessionStorage.setItem('prodos_active_family_member', name);
+                this.render();
+            }
+        });
+
         // Type toggle
-        document.querySelectorAll('.fin-type-toggle .fin-type-btn').forEach(btn => {
+        document.querySelectorAll('.fin-type-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
-                this.currentEntryType = e.currentTarget.dataset.type;
-                this.render(); // Re-render to show correct form fields
+                this.currentViewMode = e.target.dataset.type;
+                this.render();
             });
         });
         
@@ -538,19 +634,23 @@ export class FinanceManager {
                     const result = await showFormModal({
                         title: 'Add New Person',
                         icon: 'fa-solid fa-user-plus',
-                        submitLabel: 'Add',
+                        submitLabel: 'Add Person',
                         fields: [
-                            { key: 'name', label: 'Person Name', type: 'text', placeholder: 'e.g. John', required: true }
+                            { key: 'name', label: 'Person Name', type: 'text', placeholder: 'e.g. Dad, Sarah', required: true }
                         ]
                     });
-                    if (result && result.name) {
-                        const opt = document.createElement('option');
-                        opt.value = result.name;
-                        opt.textContent = result.name;
-                        personSelect.insertBefore(opt, personSelect.lastElementChild); // Insert before _NEW_
-                        personSelect.value = result.name;
+                    if (result && result.name.trim()) {
+                        const name = result.name.trim();
+                        const customPersons = this.storage.get('custom_persons') || [];
+                        if (!customPersons.includes(name)) {
+                            customPersons.push(name);
+                            this.storage.set('custom_persons', customPersons);
+                        }
+                        this.currentPersonFilter = name;
+                        sessionStorage.setItem('prodos_active_family_member', name);
+                        this.render();
                     } else {
-                        personSelect.value = 'Main';
+                        personSelect.value = (this.currentPersonFilter !== 'All' && this.currentPersonFilter !== 'Main') ? this.currentPersonFilter : '';
                     }
                 }
             });
@@ -561,9 +661,9 @@ export class FinanceManager {
         titleInput?.addEventListener('input', (e) => {
             const val = e.target.value.toLowerCase();
             const catSelect = document.getElementById('fin-category');
-            if (!catSelect || this.currentEntryType === 'loan') return;
+            if (!catSelect || this.currentViewMode === 'loans') return;
             
-            if (this.currentEntryType === 'income') {
+            if (this.currentViewMode === 'income') {
                 if(val.includes('salary')) catSelect.value = 'Salary';
                 else if(val.includes('freelance')) catSelect.value = 'Freelance';
             } else {
@@ -574,23 +674,33 @@ export class FinanceManager {
                 catSelect.dispatchEvent(new Event('change'));
             }
         });
+        
+        // Attach formatting
+        attachCurrencyFormatter(document.getElementById('fin-amount'));
+        attachCurrencyFormatter(document.getElementById('fin-interest'));
+        attachCurrencyFormatter(document.getElementById('fin-sanctioned'));
+        attachCurrencyFormatter(document.getElementById('fin-paid-already'));
+        attachCurrencyFormatter(document.getElementById('fin-emi'));
 
         // Add Entry
         document.getElementById('fin-add-btn')?.addEventListener('click', () => {
+            const dateInput = document.getElementById('fin-date');
+            const date = dateInput ? dateInput.value : new Date().toISOString().split('T')[0];
             const title = document.getElementById('fin-title').value.trim();
-            const date = document.getElementById('fin-date').value || new Date().toISOString().split('T')[0];
-            const person = document.getElementById('fin-person').value.trim() || 'Main';
+            const personSel = document.getElementById('fin-person');
+            let person = personSel ? personSel.value : '';
 
-            if (!title) {
-                showToast('Please enter a title.', 'error');
-                return;
+            if (!title) { showToast('Please enter a title', 'error'); return; }
+            if (person === '_NEW_') {
+                person = prompt('Enter name of new person:');
+                if (!person) return;
             }
 
-            if (this.currentEntryType === 'loan') {
+            if (this.currentViewMode === 'loans') {
                 const bank = document.getElementById('fin-bank').value.trim();
-                const sanctioned = parseFloat(document.getElementById('fin-sanctioned').value);
-                const paidAlready = parseFloat(document.getElementById('fin-paid-already').value) || 0;
-                const emi = parseFloat(document.getElementById('fin-emi').value) || 0;
+                const sanctioned = getRawValue(document.getElementById('fin-sanctioned'));
+                const paidAlready = getRawValue(document.getElementById('fin-paid-already')) || 0;
+                const emi = getRawValue(document.getElementById('fin-emi')) || 0;
                 const rate = parseFloat(document.getElementById('fin-rate').value) || 0;
                 const emiDate = parseInt(document.getElementById('fin-emi-date').value) || null;
 
@@ -626,7 +736,7 @@ export class FinanceManager {
                 showToast('New Loan Account Added!');
 
             } else {
-                const amount = parseFloat(document.getElementById('fin-amount').value);
+                const amount = getRawValue(document.getElementById('fin-amount'));
                 const category = document.getElementById('fin-category').value;
 
                 if (!amount || amount <= 0) {
@@ -637,8 +747,8 @@ export class FinanceManager {
                 let interestAmount = 0;
                 let linkedLoanId = null;
 
-                if (this.currentEntryType === 'expense') {
-                    interestAmount = parseFloat(document.getElementById('fin-interest')?.value) || 0;
+                if (this.currentViewMode === 'expense') {
+                    interestAmount = getRawValue(document.getElementById('fin-interest')) || 0;
                     linkedLoanId = document.getElementById('fin-linked-loan')?.value;
                 }
 
@@ -650,7 +760,7 @@ export class FinanceManager {
                     interest: interestAmount,
                     category,
                     person,
-                    type: this.currentEntryType,
+                    type: this.currentViewMode,
                     linkedLoanId,
                     date
                 });
@@ -667,7 +777,7 @@ export class FinanceManager {
                         this.saveLoans(loans);
                     }
                 }
-                showToast(`${this.currentEntryType === 'income' ? 'Income' : 'Expense'} logged!`);
+                showToast(`${this.currentViewMode === 'income' ? 'Income' : 'Expense'} logged!`);
             }
 
             if (this.currentPersonFilter !== 'All' && this.currentPersonFilter !== person) {
@@ -731,19 +841,19 @@ export class FinanceManager {
                 ];
 
                 const fields = [
-                    { key: 'title', label: 'Title', type: 'text', value: txn.title, required: true },
-                    { key: 'amount', label: 'Amount (₹)', type: 'number', value: txn.amount, required: true },
+                    { key: 'title', label: 'Title', type: 'text', value: txn.title || txn.description || '', required: true },
+                    { key: 'amount', label: 'Amount (₹)', type: 'amount', value: txn.amount, required: true },
                     { type: 'row', children: [
                         { key: 'category', label: 'Category', type: 'dropdown', value: txn.category, options: categoryOptions },
                         { key: 'date', label: 'Date', type: 'date', value: txn.date }
                     ]},
-                    { key: 'person', label: 'Person', type: 'text', value: txn.person || 'Main' }
+                    { key: 'person', label: 'Person', type: 'text', value: txn.person || '' }
                 ];
 
                 if (txn.type === 'expense') {
                     fields.push({
                         type: 'row', children: [
-                            { key: 'interest', label: 'Interest Part (₹)', type: 'number', value: txn.interest || 0 },
+                            { key: 'interest', label: 'Interest Part (₹)', type: 'amount', value: txn.interest || 0 },
                             { key: 'linkedLoanId', label: 'Linked Loan', type: 'dropdown', value: txn.linkedLoanId || '', options: loanOptions }
                         ]
                     });
@@ -772,7 +882,7 @@ export class FinanceManager {
                 txn.amount = parseFloat(result.amount);
                 txn.category = result.category;
                 txn.date = result.date;
-                txn.person = result.person || 'Main';
+                txn.person = result.person || '';
                 if (txn.type === 'expense') {
                     txn.interest = parseFloat(result.interest) || 0;
                     txn.linkedLoanId = result.linkedLoanId || null;
@@ -808,11 +918,11 @@ export class FinanceManager {
                     ]},
                     { key: 'person', label: 'Person', type: 'text', value: loan.person },
                     { type: 'row', children: [
-                        { key: 'amountSanctioned', label: 'Sanctioned Amount (₹)', type: 'number', value: loan.amountSanctioned, required: true },
-                        { key: 'amountLeftToPay', label: 'Left to Pay (₹)', type: 'number', value: loan.amountLeftToPay, required: true }
+                        { key: 'amountSanctioned', label: 'Sanctioned Amount (₹)', type: 'amount', value: loan.amountSanctioned, required: true },
+                        { key: 'amountLeftToPay', label: 'Left to Pay (₹)', type: 'amount', value: loan.amountLeftToPay, required: true }
                     ]},
                     { type: 'row', children: [
-                        { key: 'emiPerMonth', label: 'EMI per month (₹)', type: 'number', value: loan.emiPerMonth },
+                        { key: 'emiPerMonth', label: 'EMI per month (₹)', type: 'amount', value: loan.emiPerMonth },
                         { key: 'interestRate', label: 'Interest Rate (%)', type: 'number', value: loan.interestRate }
                     ]},
                     { key: 'emiDate', label: 'EMI Due Date (1-31)', type: 'number', value: loan.emiDate || '' }
@@ -830,7 +940,7 @@ export class FinanceManager {
 
                 loan.title = result.title;
                 loan.bank = result.bank || '';
-                loan.person = result.person || 'Main';
+                loan.person = result.person || '';
                 loan.amountSanctioned = parseFloat(result.amountSanctioned);
                 loan.amountLeftToPay = parseFloat(result.amountLeftToPay);
                 loan.emiPerMonth = parseFloat(result.emiPerMonth) || 0;

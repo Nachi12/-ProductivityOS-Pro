@@ -235,7 +235,8 @@ export class TaskManager {
     }
 
     renderTable() {
-        if(!this.tbody) return;
+        if (!this.tbody) this.tbody = document.getElementById('master-task-table-body');
+        if (!this.tbody) return;
         const tasks = this.storage.get('tasks');
         this.tbody.innerHTML = '';
         
