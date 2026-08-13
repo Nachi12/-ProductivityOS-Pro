@@ -48,6 +48,7 @@ export class FinanceManager {
         const txns = this.getTransactions();
         const loans = this.getLoans();
         const customPersons = this.storage.get('custom_persons') || [];
+        const deletedPersons = this.storage.get('deleted_persons') || [];
         
         let familyMembers = [];
         try {
@@ -64,7 +65,9 @@ export class FinanceManager {
             ...loans.map(l => l.person).filter(p => p && p !== 'Main')
         ]);
 
-        return Array.from(persons).filter(p => p && p !== 'Main').sort((a, b) => a.localeCompare(b));
+        return Array.from(persons)
+            .filter(p => p && p !== 'Main' && p.trim() !== '' && !deletedPersons.includes(p))
+            .sort((a, b) => a.localeCompare(b));
     }
 
     formatCurrency(amount) {
@@ -674,12 +677,19 @@ export class FinanceManager {
 
                 if (!confirmed) return;
 
-                // 1. Remove from custom_persons
+                // 1. Add to deleted_persons blacklist
+                let deletedPersons = this.storage.get('deleted_persons') || [];
+                if (!deletedPersons.includes(person)) {
+                    deletedPersons.push(person);
+                    this.storage.set('deleted_persons', deletedPersons);
+                }
+
+                // 2. Remove from custom_persons
                 let customPersons = this.storage.get('custom_persons') || [];
                 customPersons = customPersons.filter(p => p !== person);
                 this.storage.set('custom_persons', customPersons);
 
-                // 2. Remove from familyData members
+                // 3. Remove from familyData members
                 try {
                     let familyData = JSON.parse(localStorage.getItem('prodos_family_data')) || { members: [] };
                     if (familyData.members) {
@@ -687,6 +697,15 @@ export class FinanceManager {
                         localStorage.setItem('prodos_family_data', JSON.stringify(familyData));
                     }
                 } catch(e) {}
+
+                // 4. Clear person tag from transactions & loans
+                let txns = this.storage.get('transactions') || [];
+                txns = txns.map(t => t.person === person ? { ...t, person: '' } : t);
+                this.storage.set('transactions', txns);
+
+                let loans = this.storage.get('loans') || [];
+                loans = loans.map(l => l.person === person ? { ...l, person: '' } : l);
+                this.storage.set('loans', loans);
 
                 // Reset filter if active
                 if (this.currentPersonFilter === person) {
@@ -712,6 +731,11 @@ export class FinanceManager {
 
             if (result && result.name.trim()) {
                 const name = result.name.trim();
+
+                // Clear from deleted_persons blacklist if re-added
+                let deletedPersons = this.storage.get('deleted_persons') || [];
+                deletedPersons = deletedPersons.filter(p => p.toLowerCase() !== name.toLowerCase());
+                this.storage.set('deleted_persons', deletedPersons);
                 
                 // Save to custom_persons storage
                 const customPersons = this.storage.get('custom_persons') || [];

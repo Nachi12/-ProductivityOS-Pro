@@ -805,8 +805,27 @@ export class FamilyManager {
         if (!confirmed) return;
 
         if (this.familyData && this.familyData.members) {
+            const memberName = member.name;
             this.familyData.members = this.familyData.members.filter(m => m.memberId !== memberId);
             this.saveLocalFamilyData();
+
+            // 1. Add memberName to deleted_persons in localStorage
+            try {
+                let deleted = JSON.parse(localStorage.getItem('deleted_persons') || '[]');
+                if (!deleted.includes(memberName)) {
+                    deleted.push(memberName);
+                    localStorage.setItem('deleted_persons', JSON.stringify(deleted));
+                }
+                let customPersons = JSON.parse(localStorage.getItem('custom_persons') || '[]');
+                customPersons = customPersons.filter(p => p !== memberName);
+                localStorage.setItem('custom_persons', JSON.stringify(customPersons));
+
+                // 2. Clear person tag from transactions
+                let txns = JSON.parse(localStorage.getItem('transactions') || '[]');
+                txns = txns.map(t => t.person === memberName ? { ...t, person: '' } : t);
+                localStorage.setItem('transactions', JSON.stringify(txns));
+            } catch(e) {}
+
             showToast(`Removed ${member.name} from family workspace.`, "info");
             this.render();
 
