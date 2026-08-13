@@ -199,6 +199,10 @@ export class FinanceManager {
         if (this.currentPersonFilter !== 'All') {
             txns = allTxns.filter(t => t.person === this.currentPersonFilter);
             loans = allLoans.filter(l => l.person === this.currentPersonFilter);
+        } else if (persons.length === 0) {
+            // When no custom members exist, filter out orphan statement transactions from deleted members
+            txns = allTxns.filter(t => t.person && t.person !== 'Main');
+            loans = allLoans.filter(l => l.person && l.person !== 'Main');
         }
 
         const income = txns.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);

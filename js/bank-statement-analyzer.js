@@ -356,13 +356,15 @@ export class BankStatementAnalyzer {
                             <button class="an-pill-btn ${this.filterStatus === 'duplicate' ? 'active' : ''}" id="bsa-filter-dup">Duplicates (${stmt.duplicateCount})</button>
                         </div>
                     </div>
-
-                    <div style="display:flex; align-items:center; gap:12px;">
-                        <div style="display:flex; align-items:center; gap:6px;">
-                            <label style="font-size:0.8rem; font-weight:700; color:var(--text-muted);">Assign:</label>
-                            <select id="bsa-assign-person-select" class="an-select" style="padding:4px 8px; font-size:0.8rem;">
-                                <option value="">Shared</option>
-                                ${availablePersons.map(p => `<option value="${p}">${p}</option>`).join('')}
+                    <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <label style="font-size:0.83rem; font-weight:700; color:var(--accent-color); text-transform:uppercase; letter-spacing:0.04em;">
+                                <i class="fa-solid fa-user-tag"></i> Assign to Member <span style="color:var(--clr-red)">*</span>:
+                            </label>
+                            <select id="bsa-assign-person-select" class="an-select" style="padding:6px 12px; font-size:0.85rem; min-width:170px; font-weight:600; border: 1px solid var(--accent-color);">
+                                <option value="">-- Select Member / Person --</option>
+                                ${availablePersons.map(p => `<option value="${p}" ${this.activePerson === p ? 'selected' : ''}>${p}</option>`).join('')}
+                                <option value="_NEW_MEMBER_" style="font-weight:700; color:var(--accent-color);">+ Create New Member...</option>
                             </select>
                         </div>
                         <button class="btn btn-primary" id="bsa-btn-confirm-import" style="padding:8px 20px;"><i class="fa-solid fa-check-double"></i> Import ${selectedCount} Selected Transactions</button>
@@ -437,6 +439,35 @@ export class BankStatementAnalyzer {
             this.render();
         });
 
+        // Handle dropdown new member creation
+        document.getElementById('bsa-assign-person-select')?.addEventListener('change', async (e) => {
+            if (e.target.value === '_NEW_MEMBER_') {
+                const result = await showFormModal({
+                    title: 'Create Family Member / Person',
+                    icon: 'fa-solid fa-user-plus',
+                    submitLabel: 'Create Member',
+                    fields: [
+                        { key: 'name', label: 'Member Name', type: 'text', placeholder: 'e.g. Isaac, Mom, Self', required: true }
+                    ]
+                });
+
+                if (result && result.name.trim()) {
+                    const name = result.name.trim();
+                    const customPersons = this.storage.get('custom_persons') || [];
+                    if (!customPersons.includes(name)) {
+                        customPersons.push(name);
+                        this.storage.set('custom_persons', customPersons);
+                    }
+                    this.activePerson = name;
+                    this.renderReviewStep();
+                } else {
+                    e.target.value = this.activePerson || '';
+                }
+            } else {
+                this.activePerson = e.target.value;
+            }
+        });
+
         // Filter toggles
         document.getElementById('bsa-filter-all')?.addEventListener('click', () => { this.filterStatus = 'all'; this.renderReviewStep(); });
         document.getElementById('bsa-filter-review')?.addEventListener('click', () => { this.filterStatus = 'review'; this.renderReviewStep(); });
@@ -462,22 +493,19 @@ export class BankStatementAnalyzer {
         document.querySelectorAll('.bsa-row-check').forEach(box => {
             box.addEventListener('change', (e) => {
                 const id = e.target.dataset.id;
-                const t = stmt.transactions.find(x => x.id === id);
-                if (t) t.selectedForImport = e.target.checked;
-                const btn = document.getElementById('bsa-btn-confirm-import');
-                const cnt = stmt.transactions.filter(x => x.selectedForImport).length;
-                if (btn) btn.innerHTML = `<i class="fa-solid fa-check-double"></i> Import ${cnt} Selected Transactions`;
+                const txn = stmt.transactions.find(x => x.id === id);
+                if (txn) txn.selectedForImport = e.target.checked;
             });
         });
 
-        // Category change
+        // Category dropdown change
         document.querySelectorAll('.bsa-cat-select').forEach(sel => {
             sel.addEventListener('change', (e) => {
-                const id = e.target.dataset.id;
-                const t = stmt.transactions.find(x => x.id === id);
-                if (t) {
-                    t.category = e.target.value;
-                    t.confidence = 'high';
+                const id = sel.dataset.id;
+                const txn = stmt.transactions.find(x => x.id === id);
+                if (txn) {
+                    txn.category = e.target.value;
+                    txn.confidence = 'high';
                 }
             });
         });
@@ -493,14 +521,37 @@ export class BankStatementAnalyzer {
         });
 
         // Confirm & Import Selected Transactions
-        document.getElementById('bsa-btn-confirm-import')?.addEventListener('click', () => {
+        document.getElementById('bsa-btn-confirm-import')?.addEventListener('click', async () => {
             const selected = stmt.transactions.filter(t => t.selectedForImport);
             if (selected.length === 0) {
                 showToast('Please select at least one transaction to import.', 'error');
                 return;
             }
 
-            const targetPerson = document.getElementById('bsa-assign-person-select')?.value || '';
+            let targetPerson = document.getElementById('bsa-assign-person-select')?.value || this.activePerson || '';
+
+            if (!targetPerson || targetPerson === '_NEW_MEMBER_') {
+                const result = await showFormModal({
+                    title: 'Assign Statement to Member',
+                    icon: 'fa-solid fa-user-tag',
+                    submitLabel: 'Assign & Import',
+                    fields: [
+                        { key: 'name', label: 'Family Member / Person Name', type: 'text', placeholder: 'e.g. Self, Isaac, Mom', required: true }
+                    ]
+                });
+
+                if (!result || !result.name.trim()) {
+                    showToast('Please specify a family member for this statement import.', 'warning');
+                    return;
+                }
+
+                targetPerson = result.name.trim();
+                const customPersons = this.storage.get('custom_persons') || [];
+                if (!customPersons.includes(targetPerson)) {
+                    customPersons.push(targetPerson);
+                    this.storage.set('custom_persons', customPersons);
+                }
+            }
 
             // Save to database/storage
             const dbTxns = this.storage.get('transactions') || [];
@@ -519,14 +570,15 @@ export class BankStatementAnalyzer {
             });
             this.storage.set('transactions', dbTxns);
 
-            // Save statement record to history
+            // Save statement record with person metadata
+            stmt.person = targetPerson;
             const statements = this.storage.get('bank_statements') || [];
             if (!statements.some(s => s.id === stmt.id)) {
                 statements.unshift(stmt);
                 this.storage.set('bank_statements', statements);
             }
 
-            showToast(`Imported ${selected.length} transactions into your financial records!`);
+            showToast(`Imported ${selected.length} transactions for ${targetPerson}!`, 'success');
             this.activeStep = 'analysis';
             this.render();
         });
