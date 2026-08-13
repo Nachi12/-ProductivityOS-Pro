@@ -157,6 +157,24 @@
     .an-donut { flex-direction: column; align-items: center; }
     .an-bar-label { width: 70px; font-size: 0.75rem; }
 
+    /* Finance layout & KPIs */
+    .fin-layout { grid-template-columns: 1fr !important; }
+    .fin-kpi-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 10px !important; }
+    .an-summary-grid, .bsa-summary-bar { grid-template-columns: repeat(2, 1fr) !important; gap: 10px !important; }
+    .an-grid-2, .an-grid-3 { grid-template-columns: 1fr !important; gap: 12px !important; }
+
+    /* Pill Segment Toggles touch scroll */
+    .fin-type-toggle, .an-pill-toggle { display: flex !important; overflow-x: auto !important; -webkit-overflow-scrolling: touch; width: 100%; flex-wrap: nowrap !important; }
+    .fin-type-btn, .an-pill-btn { flex-shrink: 0; padding: 8px 14px; font-size: 0.8rem; }
+
+    /* Controls bar flex column */
+    .an-controls-bar, .bsa-toolbar { flex-direction: column !important; align-items: stretch !important; gap: 12px !important; }
+    .an-controls-group { flex-direction: column !alignment: stretch; gap: 8px; width: 100%; }
+
+    /* Tables mobile scroll */
+    .bsa-table-wrap, .table-responsive { overflow-x: auto !important; -webkit-overflow-scrolling: touch; width: 100%; }
+    .bsa-table, .data-table { min-width: 600px; }
+
     /* Modal */
     .gm-dialog,
     .task-modal { width: 95vw; max-width: 95vw; }
@@ -207,10 +225,14 @@
     .notes-editor-toolbar { gap: 2px; }
     .notes-tool-btn { width: 28px; height: 28px; font-size: 0.75rem; }
 
-    /* Analytics donut */
-    .an-donut-ring { width: 100px; height: 100px; }
-    .an-donut-ring svg { width: 100px; height: 100px; }
-    .an-donut-pct { font-size: 1.2rem; }
+    /* Analytics & Finance small mobile stack */
+    .fin-kpi-grid,
+    .an-summary-grid,
+    .bsa-summary-bar { grid-template-columns: 1fr !important; }
+    .an-summary-val, .fin-kpi-data .value { font-size: 1.15rem !important; }
+    .bsa-upload-card { padding: 24px 14px !important; }
+    .bsa-upload-icon { font-size: 2.2rem !important; }
+    .bsa-upload-title { font-size: 1.1rem !important; }
 }
 
 /* ========== ACCESSIBILITY: Touch targets ========== */
