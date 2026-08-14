@@ -36,10 +36,10 @@ export class AnalyticsManager {
             .an-controls-group { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-3); }
             .an-control-label { font-size: 0.78rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
             
-            .an-pill-toggle { display: inline-flex; background: var(--bg-input); padding: 4px; border-radius: 30px; border: 1px solid var(--border-color); gap: 2px; }
-            .an-pill-btn { padding: 6px 14px; border-radius: 20px; border: none; cursor: pointer; font-weight: 600; font-size: 0.82rem; transition: all 0.2s ease; background: transparent; color: var(--text-muted); }
-            .an-pill-btn:hover { color: var(--text-primary); }
-            .an-pill-btn.active { background: var(--accent-color); color: #ffffff; box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
+            .an-pill-toggle { display: inline-flex; background: rgba(15, 23, 42, 0.85); padding: 4px; border-radius: 30px; border: 1px solid rgba(255, 255, 255, 0.15); gap: 4px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.3); }
+            .an-pill-btn { padding: 6px 16px; border-radius: 20px; border: none; cursor: pointer; font-weight: 700; font-size: 0.82rem; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); background: transparent; color: #cbd5e1; }
+            .an-pill-btn:hover { color: #ffffff; background: rgba(255, 255, 255, 0.08); }
+            .an-pill-btn.active { background: var(--accent-color); color: #000000; font-weight: 800; box-shadow: 0 2px 10px rgba(199, 255, 46, 0.4); }
             
             .an-select { padding: 8px 12px; background: var(--bg-input); border: 1px solid var(--border-color); border-radius: var(--radius-md); color: var(--text-primary); font-size: 0.85rem; font-weight: 500; outline: none; }
             .an-select:focus { border-color: var(--accent-color); }

@@ -121,10 +121,10 @@ export class FinanceManager {
             /* Top Section Header & Segment Toggle */
             .fin-section-header { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; margin-bottom: 2px; }
             .fin-section-title { font-size: 1.1rem; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 8px; margin: 0; }
-            .fin-type-toggle { display: inline-flex; background: var(--bg-input); padding: 4px; border-radius: 30px; border: 1px solid var(--border-color); gap: 4px; }
-            .fin-type-btn { padding: 6px 20px; border-radius: 20px; border: none; cursor: pointer; font-weight: 600; font-size: 0.85rem; transition: all 0.2s ease; background: transparent; color: var(--text-muted); }
-            .fin-type-btn:hover { color: var(--text-primary); }
-            .fin-type-btn.active { background: var(--accent-color); color: #ffffff; box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
+            .fin-type-toggle { display: inline-flex; background: rgba(15, 23, 42, 0.85); padding: 5px; border-radius: 30px; border: 1px solid rgba(255, 255, 255, 0.15); gap: 6px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.3); }
+            .fin-type-btn { padding: 7px 22px; border-radius: 20px; border: none; cursor: pointer; font-weight: 700; font-size: 0.85rem; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); background: transparent; color: #cbd5e1; }
+            .fin-type-btn:hover { color: #ffffff; background: rgba(255, 255, 255, 0.08); }
+            .fin-type-btn.active { background: var(--accent-color); color: #000000; font-weight: 800; box-shadow: 0 2px 10px rgba(199, 255, 46, 0.4); }
 
             /* Panels Grid & Form Styling */
             .fin-panels-grid { display: grid; grid-template-columns: 1.15fr 1fr; gap: var(--spacing-4); align-items: start; }
@@ -195,15 +195,20 @@ export class FinanceManager {
         const allLoans = this.getLoans();
         const persons = this.getPersons();
         
-        let txns = allTxns;
-        let loans = allLoans;
-        
+        const personSet = new Set(persons.map(p => p.toLowerCase().trim()));
+        let txns = [];
+        let loans = [];
+
         if (this.currentPersonFilter !== 'All') {
-            const targetFilter = this.currentPersonFilter.toLowerCase();
-            txns = allTxns.filter(t => t.person && t.person.toLowerCase() === targetFilter);
-            loans = allLoans.filter(l => l.person && l.person.toLowerCase() === targetFilter);
-        } else if (persons.length === 0) {
-            // When no custom members exist, reset transaction calculation to zero
+            const targetFilter = this.currentPersonFilter.toLowerCase().trim();
+            txns = allTxns.filter(t => t.person && t.person.toLowerCase().trim() === targetFilter);
+            loans = allLoans.filter(l => l.person && l.person.toLowerCase().trim() === targetFilter);
+        } else if (persons.length > 0) {
+            // Under 'All Members', calculate ONLY items belonging to active members in the workspace
+            txns = allTxns.filter(t => t.person && personSet.has(t.person.toLowerCase().trim()));
+            loans = allLoans.filter(l => l.person && personSet.has(l.person.toLowerCase().trim()));
+        } else {
+            // When no custom members exist, calculate zero
             txns = [];
             loans = [];
         }

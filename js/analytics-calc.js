@@ -26,7 +26,8 @@ export class FinancialAnalyticsEngine {
 
         // 1. Family Filter
         if (familyMember && familyMember !== 'All') {
-            filtered = filtered.filter(t => (t.person || '') === familyMember);
+            const fmLower = familyMember.toLowerCase().trim();
+            filtered = filtered.filter(t => t.person && t.person.toLowerCase().trim() === fmLower);
         }
 
         // 2. Category Filter
