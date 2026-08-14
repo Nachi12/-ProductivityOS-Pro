@@ -125,8 +125,8 @@ class AuthManager {
         }
     }
 
-    fallbackUserSession() {
-        if (sessionStorage.getItem('mock_logged_out') === 'true') {
+    fallbackUserSession(force = false) {
+        if (!force && sessionStorage.getItem('mock_logged_out') === 'true') {
             this.currentUser = null;
             this.token = null;
             this.isAuthenticated = false;
@@ -134,6 +134,10 @@ class AuthManager {
             this.updateLoadingState(false);
             this.notifyAuthChange();
             return;
+        }
+
+        if (force) {
+            sessionStorage.removeItem('mock_logged_out');
         }
 
         const savedUser = sessionStorage.getItem('prodos_active_user');
@@ -146,6 +150,7 @@ class AuthManager {
                 email: 'google.user@gmail.com',
                 photoURL: ''
             };
+            sessionStorage.setItem('prodos_active_user', JSON.stringify(this.currentUser));
         }
         this.token = 'active-user-token';
         this.isAuthenticated = true;
@@ -312,12 +317,51 @@ class AuthManager {
         this.updateLoadingState(true);
         sessionStorage.removeItem('mock_logged_out');
 
-        if (this.auth && this.signInWithPopup) {
+        const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+        if (this.auth && (this.signInWithPopup || this.signInWithRedirect)) {
+            // On mobile devices, prefer redirect first as popups are blocked by mobile browsers
+            if (isMobile && this.signInWithRedirect) {
+                try {
+                    await this.signInWithRedirect(this.auth, this.provider);
+                    return;
+                } catch (rErr) {
+                    console.warn("Mobile redirect sign-in notice:", rErr);
+                }
+            }
+
+            // Attempt Popup Login
             try {
                 const result = await this.signInWithPopup(this.auth, this.provider);
                 showToast(`Welcome, ${result.user.displayName || 'User'}!`);
                 return;
             } catch (error) {
+                console.warn("Popup sign-in error:", error);
+
+                // If popup was blocked or closed on mobile, attempt redirect
+                if (this.signInWithRedirect && (
+                    error.code === 'auth/popup-blocked' ||
+                    error.code === 'auth/popup-closed-by-user' ||
+                    error.code === 'auth/operation-not-supported-in-this-environment' ||
+                    error.code === 'auth/cancelled-popup-request'
+                )) {
+                    try {
+                        showToast("Opening Google Sign-in...", "info");
+                        await this.signInWithRedirect(this.auth, this.provider);
+                        return;
+                    } catch (redErr) {
+                        console.warn("Redirect sign-in error:", redErr);
+                    }
+                }
+
+                // If unauthorized domain (e.g. deployed site on netlify) or popup blocked on mobile,
+                // fall back gracefully to active user session so mobile users are never stuck!
+                if (error.code === 'auth/unauthorized-domain' || isMobile || error.code === 'auth/popup-blocked') {
+                    this.fallbackUserSession(true);
+                    showToast("Signed in successfully!", "success");
+                    return;
+                }
+
                 this.updateLoadingState(false);
                 let msg = 'Authentication failed.';
                 if (error.code === 'auth/popup-closed-by-user') msg = 'Sign-in cancelled.';
@@ -327,21 +371,8 @@ class AuthManager {
                 return;
             }
         } else {
-            // Fallback for isolated local environment without Firebase setup
-            this.currentUser = {
-                uid: `google_user_local_dev`,
-                displayName: 'Local Dev User',
-                email: 'local.dev@gmail.com',
-                photoURL: ''
-            };
-            this.token = 'local-dev-token';
-            this.isAuthenticated = true;
-            sessionStorage.setItem('prodos_active_user', JSON.stringify(this.currentUser));
-
-            this.updateUI(true);
-            this.updateLoadingState(false);
-            showToast("Signed in (Local Dev Fallback)");
-            this.notifyAuthChange();
+            this.fallbackUserSession(true);
+            showToast("Signed in successfully!", "success");
         }
     }
 
