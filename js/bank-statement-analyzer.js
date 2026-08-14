@@ -574,20 +574,25 @@ export class BankStatementAnalyzer {
                 }
             }
 
-            // Save to database/storage with strict deduplication
+            // Save to database/storage with deterministic fingerprint deduplication
             const dbTxns = this.storage.get('transactions') || [];
             let addedCount = 0;
+            let skippedCount = 0;
 
             selected.forEach(t => {
                 const numAmt = parseFloat(t.amount) || 0;
                 if (numAmt <= 0) return;
 
+                const fp = StatementParser.generateFingerprint(targetPerson, t.date, numAmt, t.type, t.description, t.reference || '');
+
                 const isDup = dbTxns.some(ex => {
+                    if (ex.fingerprint && ex.fingerprint === fp) return true;
                     const sameDate = ex.date === t.date;
                     const sameAmt = Math.abs((parseFloat(ex.amount) || 0) - numAmt) < 0.01;
-                    const samePerson = (ex.person || '').toLowerCase() === targetPerson.toLowerCase();
-                    const sameTitle = ex.title && t.description && (ex.title.toLowerCase() === t.description.toLowerCase());
-                    return sameDate && sameAmt && samePerson && sameTitle;
+                    const samePerson = (ex.person || '').toLowerCase().trim() === targetPerson.toLowerCase().trim();
+                    const sameTitle = ex.title && t.description && (ex.title.toLowerCase().trim() === t.description.toLowerCase().trim());
+                    const sameRef = ex.reference && t.reference && (ex.reference === t.reference);
+                    return sameDate && sameAmt && samePerson && sameTitle && (sameRef || !ex.reference);
                 });
 
                 if (!isDup) {
@@ -601,8 +606,13 @@ export class BankStatementAnalyzer {
                         type: t.type,
                         person: targetPerson,
                         reference: t.reference || '',
-                        sourceStatementId: stmt.id
+                        sourceStatementId: stmt.id,
+                        source: 'BANK_STATEMENT',
+                        fingerprint: fp,
+                        createdAt: new Date().toISOString()
                     });
+                } else {
+                    skippedCount++;
                 }
             });
             this.storage.set('transactions', dbTxns);
@@ -615,7 +625,11 @@ export class BankStatementAnalyzer {
                 this.storage.set('bank_statements', statements);
             }
 
-            showToast(`Imported ${selected.length} transactions for ${targetPerson}!`, 'success');
+            if (addedCount > 0) {
+                showToast(`Imported ${addedCount} new transactions${skippedCount > 0 ? ` (${skippedCount} duplicates skipped)` : ''} for ${targetPerson}!`, 'success');
+            } else {
+                showToast(`All ${selected.length} selected transactions were already imported previously.`, 'info');
+            }
             this.activeStep = 'analysis';
             this.render();
         });

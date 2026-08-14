@@ -224,7 +224,7 @@ export class StatementParser {
                 // Continuation line for active transaction description
                 const partItems = row.filter(item => item.x >= colBounds.particulars[0] - 20 && item.x < colBounds.balance[0] + 100);
                 const extraText = partItems.map(i => i.text).join(' ');
-                if (extraText && !extraText.toLowerCase().includes('page ') && !extraText.toLowerCase().includes('opening balance')) {
+                if (extraText && !this.isHeaderRow(extraText)) {
                     activeTxn.descParts.push(extraText);
 
                     // Check if extra numbers present
@@ -238,10 +238,37 @@ export class StatementParser {
         });
 
         if (activeTxn) {
-            txns.push(this.finalizeTransaction(activeTxn, existingTxns));
+            const finalized = this.finalizeTransaction(activeTxn, existingTxns);
+            if (finalized) txns.push(finalized);
         }
 
         return txns;
+    }
+
+    /**
+     * Check if a text line is a repeated table header or metadata row
+     */
+    static isHeaderRow(str = '') {
+        if (!str) return false;
+        const txt = String(str).toLowerCase().trim();
+        if (txt.includes('particulars') && (txt.includes('deposits') || txt.includes('withdrawals') || txt.includes('balance') || txt.includes('narration'))) return true;
+        if (txt.includes('date') && txt.includes('particulars')) return true;
+        if (txt.includes('opening balance') || txt.includes('closing balance') || txt.includes('statement of account') || txt.includes('page ') || txt.includes('carried forward') || txt.includes('total deposits') || txt.includes('total withdrawals')) return true;
+        return false;
+    }
+
+    /**
+     * Generate deterministic transaction fingerprint hash
+     */
+    static generateFingerprint(person = '', date = '', amount = 0, type = 'expense', description = '', reference = '') {
+        const p = String(person || '').toLowerCase().trim();
+        const d = String(date || '').trim();
+        const a = parseFloat(amount || 0).toFixed(2);
+        const t = String(type || 'expense').toLowerCase().trim();
+        const desc = String(description || '').toLowerCase().replace(/[^a-z0-9]/g, '').trim();
+        const ref = String(reference || '').toLowerCase().replace(/[^a-z0-9]/g, '').trim();
+
+        return `fp_${p}_${d}_${a}_${t}_${desc.substring(0, 30)}_${ref.substring(0, 20)}`;
     }
 
     /**
@@ -249,6 +276,11 @@ export class StatementParser {
      */
     static finalizeTransaction(rawTxn, existingTxns = []) {
         const fullDesc = rawTxn.descParts.join(' ').replace(/\s+/g, ' ').trim();
+
+        // Reject header rows
+        if (this.isHeaderRow(fullDesc)) {
+            return null;
+        }
 
         let type = 'expense';
         let amount = 0;
@@ -280,6 +312,8 @@ export class StatementParser {
         const { category, confidence, merchant, paymentMethod } = this.categorizeTransaction(fullDesc, type);
         const { isDuplicate, duplicateReason } = this.checkDuplicate(rawTxn.date, amount, cleanTitle, refStr, existingTxns);
 
+        const fingerprint = this.generateFingerprint('', rawTxn.date, amount, type, cleanTitle, refStr);
+
         return {
             id: rawTxn.id,
             date: rawTxn.date,
@@ -297,6 +331,8 @@ export class StatementParser {
             duplicateReason,
             merchant: merchant || cleanTitle.replace(' (UPI)', ''),
             paymentMethod,
+            source: 'BANK_STATEMENT',
+            fingerprint,
             selectedForImport: true
         };
     }
@@ -367,6 +403,8 @@ export class StatementParser {
             let desc = line.replace(dateMatch[0], '').replace(/[\t,]+/g, ' ').trim();
             if (!desc || desc.length < 2) desc = "Bank Transaction Entry";
 
+            if (this.isHeaderRow(desc)) return;
+
             let type = 'expense';
             if (this.isCreditDescription(line)) {
                 type = 'income';
@@ -374,6 +412,7 @@ export class StatementParser {
 
             const { category, confidence, merchant, paymentMethod } = this.categorizeTransaction(desc, type);
             const { isDuplicate, duplicateReason } = this.checkDuplicate(cleanDate, amount, desc, '', existingTxns);
+            const fingerprint = this.generateFingerprint('', cleanDate, amount, type, desc, '');
 
             txns.push({
                 id: 'ai_txn_' + Date.now() + '_' + idx,
@@ -391,6 +430,8 @@ export class StatementParser {
                 duplicateReason,
                 merchant,
                 paymentMethod,
+                source: 'BANK_STATEMENT',
+                fingerprint,
                 selectedForImport: true
             });
         });

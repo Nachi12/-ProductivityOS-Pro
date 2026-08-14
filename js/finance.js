@@ -18,8 +18,66 @@ export class FinanceManager {
     }
 
     init() {
+        this.runDatabaseCleanupMigration();
         this.injectStyles();
         this.render();
+    }
+
+    runDatabaseCleanupMigration() {
+        try {
+            let txns = this.storage.get('transactions') || [];
+            if (!Array.isArray(txns) || txns.length === 0) return;
+
+            let modified = false;
+            const cleanTxns = [];
+            const seenFingerprints = new Set();
+
+            txns.forEach(t => {
+                const titleStr = String(t.title || t.description || '').toLowerCase().trim();
+
+                // 1. Purge garbage PDF table headers that were incorrectly parsed
+                if (
+                    titleStr.includes('particulars deposits withdrawals balance') ||
+                    (titleStr.includes('particulars') && titleStr.includes('deposits') && titleStr.includes('withdrawals')) ||
+                    titleStr.includes('date particulars') ||
+                    titleStr.includes('opening balance') ||
+                    titleStr.includes('closing balance')
+                ) {
+                    modified = true;
+                    return; // Skip/purge garbage header entry
+                }
+
+                // 2. Calculate or standardize transaction fingerprint
+                const numAmt = parseFloat(t.amount) || 0;
+                const personTag = (t.person === 'Main' ? '' : (t.person || '')).toLowerCase().trim();
+                const typeTag = String(t.type || 'expense').toLowerCase().trim();
+                const dateTag = String(t.date || '').trim();
+                const refTag = String(t.reference || '').toLowerCase().replace(/[^a-z0-9]/g, '').trim();
+                const normTitle = titleStr.replace(/[^a-z0-9]/g, '').substring(0, 30);
+
+                const fp = t.fingerprint || `fp_${personTag}_${dateTag}_${numAmt.toFixed(2)}_${typeTag}_${normTitle}_${refTag}`;
+
+                // 3. Deduplicate
+                if (seenFingerprints.has(fp)) {
+                    modified = true;
+                    return; // Skip duplicate clone
+                }
+
+                seenFingerprints.add(fp);
+                cleanTxns.push({
+                    ...t,
+                    amount: numAmt,
+                    fingerprint: fp,
+                    source: t.source || (t.sourceStatementId ? 'BANK_STATEMENT' : 'MANUAL')
+                });
+            });
+
+            if (modified) {
+                this.storage.set('transactions', cleanTxns);
+            }
+        } catch (err) {
+            console.warn("Database cleanup migration notice:", err.message);
+        }
     }
 
     getTransactions() {
@@ -316,6 +374,7 @@ export class FinanceManager {
                                     <div style="margin-bottom: 4px; font-weight: 600; color: var(--text-primary);">${itemTitle}</div>
                                     <div>
                                         ${this.currentPersonFilter === 'All' && t.person ? `<span class="person-tag"><i class="fa-solid fa-user"></i> ${t.person}</span>` : ''}
+                                        ${t.sourceStatementId || t.source === 'BANK_STATEMENT' ? `<span class="person-tag" style="background:rgba(35,131,226,0.12); color:var(--clr-blue); border:1px solid rgba(35,131,226,0.3);"><i class="fa-solid fa-file-invoice-dollar"></i> Statement</span>` : `<span class="person-tag"><i class="fa-solid fa-pen"></i> Manual</span>`}
                                         ${t.interest > 0 ? `<span class="person-tag interest-tag">Includes ${this.formatCurrency(t.interest)} Interest</span>` : ''}
                                     </div>
                                 </td>
