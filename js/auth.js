@@ -30,6 +30,19 @@ class AuthManager {
         this.activeFamilyMember = sessionStorage.getItem('prodos_active_family_member') || 'Main';
         this.config = getStoredFirebaseConfig();
 
+        // Load cached credentials synchronously for instant state hydration
+        try {
+            const savedUser = sessionStorage.getItem('prodos_active_user') || localStorage.getItem('prodos_active_user');
+            if (savedUser && sessionStorage.getItem('mock_logged_out') !== 'true') {
+                this.currentUser = JSON.parse(savedUser);
+                this.isAuthenticated = Boolean(this.currentUser && this.currentUser.uid);
+                this.isGuest = sessionStorage.getItem('prodos_is_guest') === 'true' || localStorage.getItem('prodos_is_guest') === 'true';
+                this.updateUI(true);
+            }
+        } catch (e) {
+            console.warn("Cached user parse error:", e);
+        }
+
         this.initProfileDropdown();
         this.bindEvents();
         this.initFirebase();
@@ -106,11 +119,14 @@ class AuthManager {
                         this.isAuthenticated = true;
                         this.isGuest = false;
                         sessionStorage.setItem('prodos_active_user', JSON.stringify(this.currentUser));
+                        localStorage.setItem('prodos_active_user', JSON.stringify(this.currentUser));
                         sessionStorage.removeItem('prodos_is_guest');
+                        localStorage.removeItem('prodos_is_guest');
                         this.updateUI(true);
                         this.updateLoadingState(false);
                         this.notifyAuthChange();
                         showToast(`Welcome, ${this.currentUser.displayName}!`, 'success');
+                        await this.checkAndProcessPendingInvite();
                         return;
                     }
                 } catch (rErr) {
@@ -138,15 +154,17 @@ class AuthManager {
                         this.isAuthenticated = true;
                         this.isGuest = false;
                         sessionStorage.setItem('prodos_active_user', JSON.stringify(this.currentUser));
+                        localStorage.setItem('prodos_active_user', JSON.stringify(this.currentUser));
                         sessionStorage.removeItem('prodos_is_guest');
+                        localStorage.removeItem('prodos_is_guest');
                         this.updateUI(true);
                         this.updateLoadingState(false);
                         this.notifyAuthChange();
                         await this.checkAndProcessPendingInvite();
                     } else {
                         // Check if active guest session exists
-                        const isGuest = sessionStorage.getItem('prodos_is_guest') === 'true';
-                        const savedUser = sessionStorage.getItem('prodos_active_user');
+                        const isGuest = sessionStorage.getItem('prodos_is_guest') === 'true' || localStorage.getItem('prodos_is_guest') === 'true';
+                        const savedUser = sessionStorage.getItem('prodos_active_user') || localStorage.getItem('prodos_active_user');
 
                         if (isGuest && savedUser && sessionStorage.getItem('mock_logged_out') !== 'true') {
                             this.currentUser = JSON.parse(savedUser);
@@ -162,6 +180,7 @@ class AuthManager {
                             this.isAuthenticated = false;
                             this.isGuest = false;
                             sessionStorage.removeItem('prodos_active_user');
+                            localStorage.removeItem('prodos_active_user');
                             this.updateUI(false);
                             this.updateLoadingState(false);
                             this.notifyAuthChange();

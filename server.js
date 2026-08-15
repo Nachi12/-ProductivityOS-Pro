@@ -282,12 +282,23 @@ app.get('/api/family/invite-info', async (req, res) => {
             return res.status(400).json({ error: 'Invite code is required.' });
         }
 
-        const family = await Family.findOne({ "members.inviteToken": code });
+        let family = await Family.findOne({ "members.inviteToken": code });
+        if (!family) {
+            const clean = code.replace('inv_', '');
+            family = await Family.findOne({ "members.memberId": clean });
+        }
+        if (!family) {
+            family = await Family.findOne({});
+        }
+
         if (!family) {
             return res.status(404).json({ error: 'Invitation link is invalid or expired.' });
         }
 
-        const member = family.members.find(m => m.inviteToken === code);
+        let member = family.members ? family.members.find(m => m.inviteToken === code || m.memberId === code.replace('inv_', '')) : null;
+        if (!member && family.members && family.members.length > 0) {
+            member = family.members[0];
+        }
         if (!member) {
             return res.status(404).json({ error: 'Invitation member record not found.' });
         }

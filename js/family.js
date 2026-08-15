@@ -10,6 +10,13 @@ export class FamilyManager {
         this.isOwner = true;
         this.currentMember = null;
         this.backendUrl = window.location.origin + '/api/family';
+
+        // Auto-refresh family view when auth state resolves
+        authManager.onAuthChange((user) => {
+            if (window.location.hash.includes('family')) {
+                this.init();
+            }
+        });
     }
 
     loadLocalFamilyData() {
@@ -51,15 +58,35 @@ export class FamilyManager {
 
         // Check if user opened a share invite link
         const urlParams = new URLSearchParams(window.location.search);
-        const hashInvite = window.location.hash.includes('invite=') ? window.location.hash.split('invite=')[1].split('&')[0] : null;
-        const inviteCode = urlParams.get('invite') || hashInvite;
+        let hashInvite = null;
+        if (window.location.hash.includes('invite=')) {
+            hashInvite = window.location.hash.split('invite=')[1].split('&')[0];
+        } else if (window.location.hash.includes('inviteToken=')) {
+            hashInvite = window.location.hash.split('inviteToken=')[1].split('&')[0];
+        }
+        
+        const inviteCode = urlParams.get('invite') || urlParams.get('inviteToken') || hashInvite || sessionStorage.getItem('prodos_pending_invite') || localStorage.getItem('prodos_pending_invite');
 
         if (inviteCode) {
+            sessionStorage.setItem('prodos_pending_invite', inviteCode);
+            localStorage.setItem('prodos_pending_invite', inviteCode);
             await this.renderInviteAcceptance(inviteCode);
             return;
         }
 
-        if (!authManager.isAuthenticated) {
+        let user = authManager.currentUser;
+        if (!user) {
+            try {
+                const saved = sessionStorage.getItem('prodos_active_user') || localStorage.getItem('prodos_active_user');
+                if (saved && sessionStorage.getItem('mock_logged_out') !== 'true') {
+                    user = JSON.parse(saved);
+                }
+            } catch(e) {}
+        }
+
+        const isAuth = Boolean(authManager.isAuthenticated || (user && user.uid));
+
+        if (!isAuth) {
             container.innerHTML = `
                 <div class="card" style="text-align:center; padding: 40px; max-width: 500px; margin: 40px auto;">
                     <i class="fa-solid fa-lock" style="font-size:3rem; color:var(--text-muted); margin-bottom:16px;"></i>
@@ -499,159 +526,6 @@ export class FamilyManager {
         });
     }
 
-    async init() {
-        const container = document.getElementById('family-view-container');
-        if (!container) return;
-
-        // Check if user opened a share invite link (via search query, hash, or saved storage)
-        const urlParams = new URLSearchParams(window.location.search);
-        let hashInvite = null;
-        if (window.location.hash.includes('invite=')) {
-            hashInvite = window.location.hash.split('invite=')[1].split('&')[0];
-        } else if (window.location.hash.includes('inviteToken=')) {
-            hashInvite = window.location.hash.split('inviteToken=')[1].split('&')[0];
-        }
-        
-        const inviteCode = urlParams.get('invite') || urlParams.get('inviteToken') || hashInvite || sessionStorage.getItem('prodos_pending_invite') || localStorage.getItem('prodos_pending_invite');
-
-        if (inviteCode) {
-            sessionStorage.setItem('prodos_pending_invite', inviteCode);
-            localStorage.setItem('prodos_pending_invite', inviteCode);
-            await this.renderInviteAcceptance(inviteCode);
-            return;
-        }
-
-        if (!authManager.isAuthenticated) {
-            container.innerHTML = `
-                <div class="card" style="text-align:center; padding: 40px; max-width: 500px; margin: 40px auto;">
-                    <i class="fa-solid fa-lock" style="font-size:3rem; color:var(--text-muted); margin-bottom:16px;"></i>
-                    <h2>Authentication Required</h2>
-                    <p class="text-muted" style="margin-top:8px; margin-bottom: 24px;">Please sign in with Google to view and manage your family workspace.</p>
-                    <button class="btn btn-primary" onclick="document.getElementById('auth-login-btn').click()" style="justify-content:center; width:100%; padding:12px;">
-                        <i class="fa-brands fa-google"></i> Sign in with Google
-                    </button>
-                </div>
-            `;
-            return;
-        }
-
-        await this.fetchFamilyData();
-        this.render();
-    }
-
-    async fetchFamilyData() {
-        try {
-            const res = await fetch(this.backendUrl, {
-                headers: {
-                    'Authorization': 'Bearer ' + (authManager.token || 'mock-token'),
-                    'x-user-uid': authManager.currentUser ? authManager.currentUser.uid : ''
-                }
-            });
-            const result = await res.json();
-            if (result.success && result.family) {
-                this.familyData = result.family;
-                this.isOwner = result.isOwner;
-                this.currentMember = result.currentMember;
-                this.saveLocalFamilyData();
-            }
-        } catch (err) {
-            console.warn("Family fetch notice (using local storage):", err.message);
-        }
-    }
-
-    render() {
-        const container = document.getElementById('family-view-container');
-        if (!container) return;
-
-        const family = this.familyData || { name: 'My Family Workspace', members: [] };
-        const members = family.members || [];
-
-        let html = `
-            <div class="view-header" style="margin-bottom: 24px;">
-                <div>
-                    <h1><i class="fa-solid fa-people-roof" style="color:var(--accent-color); margin-right:8px;"></i>${family.name}</h1>
-                    <p class="subtitle text-muted">Coordinate tasks, track shared budgets, and synchronize family life.</p>
-                </div>
-                <div class="header-actions">
-                    <button class="btn btn-primary" id="btn-add-family-member">
-                        <i class="fa-solid fa-user-plus"></i> Add Member
-                    </button>
-                </div>
-            </div>
-
-            <!-- Active Switcher Tab Bar -->
-            <div class="card" style="padding:12px 18px; margin-bottom:20px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px;">
-                <div style="display:flex; align-items:center; gap:10px;">
-                    <span style="font-size:0.85rem; font-weight:700; color:var(--text-muted); text-transform:uppercase;">Active Perspective:</span>
-                    <span class="badge" style="background:var(--accent-light); color:var(--accent-color); font-size:0.9rem; font-weight:700; padding:6px 12px; border-radius:20px;">
-                        ${authManager.activeFamilyMember || 'Main'}
-                    </span>
-                </div>
-                <div style="font-size:0.85rem; color:var(--text-secondary);">
-                    Logged in as <strong>${authManager.currentUser ? authManager.currentUser.displayName : 'Guest User'}</strong>
-                </div>
-            </div>
-
-            <div class="family-members-grid" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(320px, 1fr)); gap:16px;">
-        `;
-
-        if (members.length === 0) {
-            html += `
-                <div class="card" style="grid-column: 1 / -1; text-align:center; padding:48px 24px;">
-                    <i class="fa-solid fa-users" style="font-size:3rem; color:var(--text-muted); margin-bottom:14px;"></i>
-                    <h3>No family members added yet</h3>
-                    <p class="text-muted" style="margin-top:6px; margin-bottom:20px;">Add your spouse, kids, or parents to share tasks and track family finances.</p>
-                    <button class="btn btn-primary" id="btn-add-family-member-empty" style="display:inline-flex;">
-                        <i class="fa-solid fa-plus"></i> Add First Member
-                    </button>
-                </div>
-            `;
-        } else {
-            members.forEach(m => {
-                const isLinked = Boolean(m.firebaseUid);
-                html += `
-                    <div class="card family-member-card" style="padding:20px; border-top: 3px solid ${isLinked ? 'var(--clr-green)' : 'var(--accent-color)'};">
-                        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:14px;">
-                            <div style="display:flex; align-items:center; gap:12px;">
-                                <div class="user-avatar" style="width:46px; height:46px; font-size:1.1rem; border-radius:50%; overflow:hidden;">
-                                    ${m.photoURL ? `<img src="${m.photoURL}" referrerpolicy="no-referrer" style="width:100%;height:100%;object-fit:cover;">` : m.name.substr(0, 2).toUpperCase()}
-                                </div>
-                                <div>
-                                    <h3 style="font-size:1.05rem; font-weight:700; margin:0;">${m.name}</h3>
-                                    <span style="font-size:0.75rem; color:var(--text-muted);">${m.relationship}</span>
-                                </div>
-                            </div>
-                            <span class="badge" style="background:${isLinked ? 'rgba(67, 160, 71, 0.12)' : 'rgba(255, 193, 7, 0.12)'}; color:${isLinked ? 'var(--clr-green)' : 'var(--clr-orange)'}; font-size:0.75rem; font-weight:700; padding:4px 8px; border-radius:12px;">
-                                ${isLinked ? '<i class="fa-solid fa-link"></i> Linked' : '<i class="fa-solid fa-hourglass-half"></i> Pending'}
-                            </span>
-                        </div>
-
-                        <div style="background:var(--bg-input); padding:10px 12px; border-radius:var(--radius-sm); margin-bottom:16px; font-size:0.82rem; color:var(--text-secondary);">
-                            <div style="margin-bottom:4px;"><strong>Google Account:</strong> ${m.email || 'Not connected yet'}</div>
-                            <div><strong>Invite Code:</strong> <code style="font-family:monospace; background:rgba(0,0,0,0.2); padding:2px 6px; border-radius:4px;">${m.inviteToken || 'N/A'}</code></div>
-                        </div>
-
-                        <div style="display:flex; gap:8px; flex-wrap:wrap;">
-                            <button class="btn btn-primary btn-share-invite" data-id="${m.memberId}" style="flex:1; justify-content:center; font-size:0.82rem; padding:8px 10px;">
-                                <i class="fa-solid fa-share-nodes"></i> Share Invite Link
-                            </button>
-                            <button class="btn btn-secondary btn-member-settings" data-id="${m.memberId}" style="padding:8px 10px; font-size:0.82rem;" title="Permissions">
-                                <i class="fa-solid fa-sliders"></i>
-                            </button>
-                            <button class="btn btn-secondary btn-del-member" data-id="${m.memberId}" style="padding:8px 10px; font-size:0.82rem; color:var(--clr-red);" title="Remove Member">
-                                <i class="fa-solid fa-trash-can"></i>
-                            </button>
-                        </div>
-                    </div>
-                `;
-            });
-        }
-
-        html += `</div>`;
-        container.innerHTML = html;
-        this.bindEvents();
-    }
-
     /**
      * Render Invitation Acceptance Page when user opens #family?invite=CODE
      */
@@ -684,8 +558,18 @@ export class FamilyManager {
             console.warn("Invite info fetch notice:", e.message);
         }
 
-        const isUserAuthenticated = Boolean(authManager.isAuthenticated && authManager.currentUser);
-        const currentUser = authManager.currentUser || {};
+        // Retrieve active user from authManager or localStorage/sessionStorage
+        let currentUser = authManager.currentUser;
+        if (!currentUser) {
+            try {
+                const saved = sessionStorage.getItem('prodos_active_user') || localStorage.getItem('prodos_active_user');
+                if (saved && sessionStorage.getItem('mock_logged_out') !== 'true') {
+                    currentUser = JSON.parse(saved);
+                }
+            } catch(e) {}
+        }
+
+        const isUserAuthenticated = Boolean(currentUser && (currentUser.displayName || currentUser.email || currentUser.uid));
 
         if (inviteData.isAlreadyLinked && !isUserAuthenticated) {
             container.innerHTML = `
@@ -725,12 +609,12 @@ export class FamilyManager {
                     <div style="background:var(--bg-input); border:1px solid var(--border-color); border-radius:var(--radius-md); padding:14px; text-align:left; margin-bottom:20px;">
                         <div style="font-size:0.75rem; font-weight:700; color:var(--text-muted); text-transform:uppercase; margin-bottom:6px;">Your Active Account</div>
                         <div style="display:flex; align-items:center; gap:10px;">
-                            <div class="user-avatar" style="width:36px; height:36px; font-size:0.9rem; border-radius:50%; overflow:hidden; flex-shrink:0;">
+                            <div class="user-avatar" style="width:38px; height:38px; font-size:0.95rem; border-radius:50%; overflow:hidden; flex-shrink:0; background:var(--accent-color); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700;">
                                 ${currentUser.photoURL ? `<img src="${currentUser.photoURL}" referrerpolicy="no-referrer" style="width:100%;height:100%;object-fit:cover;">` : (currentUser.displayName || 'US').substr(0, 2).toUpperCase()}
                             </div>
                             <div style="overflow:hidden;">
                                 <strong style="display:block; font-size:0.95rem; color:var(--text-primary); text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">${currentUser.displayName || 'Google User'}</strong>
-                                <span style="font-size:0.8rem; color:var(--text-secondary); text-overflow:ellipsis; overflow:hidden; display:block; white-space:nowrap;">${currentUser.email || 'Google Account'}</span>
+                                <span style="font-size:0.8rem; color:var(--text-secondary); text-overflow:ellipsis; overflow:hidden; display:block; white-space:nowrap;">${currentUser.email || 'Signed in'}</span>
                             </div>
                         </div>
                     </div>
@@ -815,8 +699,9 @@ export class FamilyManager {
 
         // 1. Direct accept with current authenticated account
         document.getElementById('btn-accept-invite-active')?.addEventListener('click', async () => {
-            if (authManager.currentUser) {
-                await doAccept(authManager.currentUser);
+            const userToAccept = authManager.currentUser || currentUser;
+            if (userToAccept) {
+                await doAccept(userToAccept);
             }
         });
 
@@ -841,8 +726,9 @@ export class FamilyManager {
         // 4. Accept as Guest
         document.getElementById('btn-accept-invite-guest')?.addEventListener('click', async () => {
             authManager.loginAsGuest();
-            if (authManager.currentUser) {
-                await doAccept(authManager.currentUser);
+            const userToAccept = authManager.currentUser || currentUser;
+            if (userToAccept) {
+                await doAccept(userToAccept);
             }
         });
     }
