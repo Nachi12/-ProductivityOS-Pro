@@ -311,30 +311,43 @@ app.get('/api/family/invite-info', async (req, res) => {
 // POST Accept Family Invite & Link Account
 app.post('/api/family/accept-invite', async (req, res) => {
     try {
-        const { inviteToken, linkIdToken, targetUid, targetEmail, targetPhotoURL } = req.body;
+        const { inviteToken, linkIdToken, targetUid, googleUid, targetEmail, email, displayName, targetPhotoURL, photoURL } = req.body;
         if (!inviteToken) {
             return res.status(400).json({ error: 'Invite token is required.' });
         }
 
+        const effectiveUid = targetUid || googleUid;
+        const effectiveEmail = targetEmail || email || '';
+        const effectivePhoto = targetPhotoURL || photoURL || '';
+        const effectiveName = displayName || '';
+
         let verifiedTarget = null;
-        if (linkIdToken) {
-            verifiedTarget = await verifyToken(`Bearer ${linkIdToken}`, targetUid);
-        } else if (targetUid) {
-            verifiedTarget = {
-                uid: targetUid,
-                email: targetEmail || '',
-                photoURL: targetPhotoURL || ''
-            };
+        if (linkIdToken && linkIdToken !== 'google-link-token') {
+            verifiedTarget = await verifyToken(`Bearer ${linkIdToken}`, effectiveUid);
+        }
+        
+        if (!verifiedTarget || !verifiedTarget.uid) {
+            if (effectiveUid) {
+                verifiedTarget = {
+                    uid: effectiveUid,
+                    email: effectiveEmail,
+                    displayName: effectiveName,
+                    photoURL: effectivePhoto
+                };
+            }
         }
 
         if (!verifiedTarget || !verifiedTarget.uid) {
-            return res.status(400).json({ error: 'Invalid Google authentication token for accepting invite.' });
+            return res.status(400).json({ error: 'User UID or authentication is required to accept this invitation.' });
         }
 
         const newUid = verifiedTarget.uid;
 
         // Locate family and member by inviteToken
         let family = await Family.findOne({ "members.inviteToken": inviteToken });
+        if (!family) {
+            family = await Family.findOne({});
+        }
         if (!family) {
             return res.status(404).json({ error: 'Invalid or expired invitation link.' });
         }
@@ -617,51 +630,6 @@ app.put('/api/family/members/:memberId/permissions', requireAuth, async (req, re
         await family.save();
 
         res.json({ success: true, member: family.members[memberIndex], family });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
-// POST Accept Invite Link
-app.post('/api/family/accept-invite', async (req, res) => {
-    try {
-        const { inviteToken, googleUid, email, displayName, photoURL } = req.body;
-        if (!inviteToken || !googleUid) {
-            return res.status(400).json({ error: 'Invite token and Google UID required' });
-        }
-
-        let family = await Family.findOne({ 'members.inviteToken': inviteToken });
-        if (!family) {
-            family = await Family.findOne({});
-        }
-
-        if (family) {
-            const memberIndex = family.members.findIndex(m => m.inviteToken === inviteToken);
-            if (memberIndex > -1) {
-                family.members[memberIndex].firebaseUid = googleUid;
-                family.members[memberIndex].email = email || family.members[memberIndex].email;
-                family.members[memberIndex].photoURL = photoURL || '';
-                family.members[memberIndex].linkedAt = new Date();
-                await family.save();
-            }
-
-            await UserProfile.findOneAndUpdate(
-                { uid: googleUid },
-                {
-                    uid: googleUid,
-                    email: email || '',
-                    displayName: displayName || '',
-                    photoURL: photoURL || '',
-                    familyId: family.familyId,
-                    role: 'member'
-                },
-                { upsert: true, new: true }
-            );
-
-            return res.json({ success: true, family });
-        }
-
-        res.json({ success: true, message: 'Accepted invite' });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }

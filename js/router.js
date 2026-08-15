@@ -6,6 +6,23 @@ export class Router {
     }
 
     init() {
+        // Detect pending invitation parameter in search or hash
+        const urlParams = new URLSearchParams(window.location.search);
+        let inviteCode = urlParams.get('invite') || urlParams.get('inviteToken');
+
+        if (!inviteCode && window.location.hash.includes('invite=')) {
+            inviteCode = window.location.hash.split('invite=')[1].split('&')[0];
+        } else if (!inviteCode && window.location.hash.includes('inviteToken=')) {
+            inviteCode = window.location.hash.split('inviteToken=')[1].split('&')[0];
+        }
+
+        if (inviteCode) {
+            localStorage.setItem('prodos_pending_invite', inviteCode);
+            sessionStorage.setItem('prodos_pending_invite', inviteCode);
+            this.navigateTo('family');
+            return;
+        }
+
         const rawHash = window.location.hash.replace('#', '') || 'dashboard';
         const baseView = rawHash.split('?')[0];
         this.navigateTo(baseView || 'dashboard');

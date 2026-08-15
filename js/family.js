@@ -491,12 +491,165 @@ export class FamilyManager {
                         navigator.share({
                             title: `Join Family Workspace`,
                             text: `Hi ${member.name}, join our family workspace on ProductivityOS:`,
-                            url: inviteUrl
+                    url: inviteUrl
                         }).catch(e => console.log('Share notice:', e));
                     });
                 }
             }
         });
+    }
+
+    async init() {
+        const container = document.getElementById('family-view-container');
+        if (!container) return;
+
+        // Check if user opened a share invite link (via search query, hash, or saved storage)
+        const urlParams = new URLSearchParams(window.location.search);
+        let hashInvite = null;
+        if (window.location.hash.includes('invite=')) {
+            hashInvite = window.location.hash.split('invite=')[1].split('&')[0];
+        } else if (window.location.hash.includes('inviteToken=')) {
+            hashInvite = window.location.hash.split('inviteToken=')[1].split('&')[0];
+        }
+        
+        const inviteCode = urlParams.get('invite') || urlParams.get('inviteToken') || hashInvite || sessionStorage.getItem('prodos_pending_invite') || localStorage.getItem('prodos_pending_invite');
+
+        if (inviteCode) {
+            sessionStorage.setItem('prodos_pending_invite', inviteCode);
+            localStorage.setItem('prodos_pending_invite', inviteCode);
+            await this.renderInviteAcceptance(inviteCode);
+            return;
+        }
+
+        if (!authManager.isAuthenticated) {
+            container.innerHTML = `
+                <div class="card" style="text-align:center; padding: 40px; max-width: 500px; margin: 40px auto;">
+                    <i class="fa-solid fa-lock" style="font-size:3rem; color:var(--text-muted); margin-bottom:16px;"></i>
+                    <h2>Authentication Required</h2>
+                    <p class="text-muted" style="margin-top:8px; margin-bottom: 24px;">Please sign in with Google to view and manage your family workspace.</p>
+                    <button class="btn btn-primary" onclick="document.getElementById('auth-login-btn').click()" style="justify-content:center; width:100%; padding:12px;">
+                        <i class="fa-brands fa-google"></i> Sign in with Google
+                    </button>
+                </div>
+            `;
+            return;
+        }
+
+        await this.fetchFamilyData();
+        this.render();
+    }
+
+    async fetchFamilyData() {
+        try {
+            const res = await fetch(this.backendUrl, {
+                headers: {
+                    'Authorization': 'Bearer ' + (authManager.token || 'mock-token'),
+                    'x-user-uid': authManager.currentUser ? authManager.currentUser.uid : ''
+                }
+            });
+            const result = await res.json();
+            if (result.success && result.family) {
+                this.familyData = result.family;
+                this.isOwner = result.isOwner;
+                this.currentMember = result.currentMember;
+                this.saveLocalFamilyData();
+            }
+        } catch (err) {
+            console.warn("Family fetch notice (using local storage):", err.message);
+        }
+    }
+
+    render() {
+        const container = document.getElementById('family-view-container');
+        if (!container) return;
+
+        const family = this.familyData || { name: 'My Family Workspace', members: [] };
+        const members = family.members || [];
+
+        let html = `
+            <div class="view-header" style="margin-bottom: 24px;">
+                <div>
+                    <h1><i class="fa-solid fa-people-roof" style="color:var(--accent-color); margin-right:8px;"></i>${family.name}</h1>
+                    <p class="subtitle text-muted">Coordinate tasks, track shared budgets, and synchronize family life.</p>
+                </div>
+                <div class="header-actions">
+                    <button class="btn btn-primary" id="btn-add-family-member">
+                        <i class="fa-solid fa-user-plus"></i> Add Member
+                    </button>
+                </div>
+            </div>
+
+            <!-- Active Switcher Tab Bar -->
+            <div class="card" style="padding:12px 18px; margin-bottom:20px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px;">
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <span style="font-size:0.85rem; font-weight:700; color:var(--text-muted); text-transform:uppercase;">Active Perspective:</span>
+                    <span class="badge" style="background:var(--accent-light); color:var(--accent-color); font-size:0.9rem; font-weight:700; padding:6px 12px; border-radius:20px;">
+                        ${authManager.activeFamilyMember || 'Main'}
+                    </span>
+                </div>
+                <div style="font-size:0.85rem; color:var(--text-secondary);">
+                    Logged in as <strong>${authManager.currentUser ? authManager.currentUser.displayName : 'Guest User'}</strong>
+                </div>
+            </div>
+
+            <div class="family-members-grid" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(320px, 1fr)); gap:16px;">
+        `;
+
+        if (members.length === 0) {
+            html += `
+                <div class="card" style="grid-column: 1 / -1; text-align:center; padding:48px 24px;">
+                    <i class="fa-solid fa-users" style="font-size:3rem; color:var(--text-muted); margin-bottom:14px;"></i>
+                    <h3>No family members added yet</h3>
+                    <p class="text-muted" style="margin-top:6px; margin-bottom:20px;">Add your spouse, kids, or parents to share tasks and track family finances.</p>
+                    <button class="btn btn-primary" id="btn-add-family-member-empty" style="display:inline-flex;">
+                        <i class="fa-solid fa-plus"></i> Add First Member
+                    </button>
+                </div>
+            `;
+        } else {
+            members.forEach(m => {
+                const isLinked = Boolean(m.firebaseUid);
+                html += `
+                    <div class="card family-member-card" style="padding:20px; border-top: 3px solid ${isLinked ? 'var(--clr-green)' : 'var(--accent-color)'};">
+                        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:14px;">
+                            <div style="display:flex; align-items:center; gap:12px;">
+                                <div class="user-avatar" style="width:46px; height:46px; font-size:1.1rem; border-radius:50%; overflow:hidden;">
+                                    ${m.photoURL ? `<img src="${m.photoURL}" referrerpolicy="no-referrer" style="width:100%;height:100%;object-fit:cover;">` : m.name.substr(0, 2).toUpperCase()}
+                                </div>
+                                <div>
+                                    <h3 style="font-size:1.05rem; font-weight:700; margin:0;">${m.name}</h3>
+                                    <span style="font-size:0.75rem; color:var(--text-muted);">${m.relationship}</span>
+                                </div>
+                            </div>
+                            <span class="badge" style="background:${isLinked ? 'rgba(67, 160, 71, 0.12)' : 'rgba(255, 193, 7, 0.12)'}; color:${isLinked ? 'var(--clr-green)' : 'var(--clr-orange)'}; font-size:0.75rem; font-weight:700; padding:4px 8px; border-radius:12px;">
+                                ${isLinked ? '<i class="fa-solid fa-link"></i> Linked' : '<i class="fa-solid fa-hourglass-half"></i> Pending'}
+                            </span>
+                        </div>
+
+                        <div style="background:var(--bg-input); padding:10px 12px; border-radius:var(--radius-sm); margin-bottom:16px; font-size:0.82rem; color:var(--text-secondary);">
+                            <div style="margin-bottom:4px;"><strong>Google Account:</strong> ${m.email || 'Not connected yet'}</div>
+                            <div><strong>Invite Code:</strong> <code style="font-family:monospace; background:rgba(0,0,0,0.2); padding:2px 6px; border-radius:4px;">${m.inviteToken || 'N/A'}</code></div>
+                        </div>
+
+                        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                            <button class="btn btn-primary btn-share-invite" data-id="${m.memberId}" style="flex:1; justify-content:center; font-size:0.82rem; padding:8px 10px;">
+                                <i class="fa-solid fa-share-nodes"></i> Share Invite Link
+                            </button>
+                            <button class="btn btn-secondary btn-member-settings" data-id="${m.memberId}" style="padding:8px 10px; font-size:0.82rem;" title="Permissions">
+                                <i class="fa-solid fa-sliders"></i>
+                            </button>
+                            <button class="btn btn-secondary btn-del-member" data-id="${m.memberId}" style="padding:8px 10px; font-size:0.82rem; color:var(--clr-red);" title="Remove Member">
+                                <i class="fa-solid fa-trash-can"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        html += `</div>`;
+        container.innerHTML = html;
+        this.bindEvents();
     }
 
     /**
@@ -507,108 +660,195 @@ export class FamilyManager {
         if (!container) return;
 
         container.innerHTML = `
-            <div class="card" style="max-width:500px; margin:40px auto; text-align:center; padding:36px; border-top: 4px solid var(--accent-color);">
+            <div class="card" style="max-width:520px; margin:40px auto; text-align:center; padding:36px; border-top: 4px solid var(--accent-color);">
                 <i class="fa-solid fa-spinner fa-spin" style="font-size:2.5rem; color:var(--accent-color); margin-bottom:16px;"></i>
-                <h2>Loading Invitation...</h2>
+                <h2>Verifying Invitation...</h2>
             </div>
         `;
 
+        let inviteData = {
+            familyName: 'Family Workspace',
+            memberName: 'Family Member',
+            relationship: 'Member',
+            ownerName: 'Family Owner',
+            isAlreadyLinked: false
+        };
+
         try {
-            const res = await fetch(`${this.backendUrl}/invite-info?code=${code}`);
+            const res = await fetch(`${this.backendUrl}/invite-info?code=${encodeURIComponent(code)}`);
             const data = await res.json();
-
-            if (!data.success) {
-                container.innerHTML = `
-                    <div class="card" style="max-width:500px; margin:40px auto; text-align:center; padding:36px; border-top: 4px solid var(--clr-red);">
-                        <i class="fa-solid fa-circle-exclamation" style="font-size:3rem; color:var(--clr-red); margin-bottom:16px;"></i>
-                        <h2>Invitation Ready</h2>
-                        <p style="margin-top:8px; margin-bottom:20px; color:var(--text-secondary);">Click below to accept this invitation and link your Google Account.</p>
-                        <button id="btn-accept-invite-google" class="btn btn-primary" style="width:100%; justify-content:center; padding:14px; font-size:1.05rem; gap:10px;">
-                            <i class="fa-brands fa-google" style="font-size:1.2rem;"></i> Sign in with Google to Join
-                        </button>
-                    </div>
-                `;
-            } else {
-                const { familyName, memberName, relationship, ownerName, isAlreadyLinked } = data;
-
-                if (isAlreadyLinked) {
-                    container.innerHTML = `
-                        <div class="card" style="max-width:500px; margin:40px auto; text-align:center; padding:36px; border-top: 4px solid var(--clr-green);">
-                            <i class="fa-solid fa-circle-check" style="font-size:3rem; color:var(--clr-green); margin-bottom:16px;"></i>
-                            <h2>Already Joined!</h2>
-                            <p style="margin-top:8px; color:var(--text-secondary);">
-                                <strong>${memberName}</strong> is already linked and connected to <strong>${familyName}</strong>.
-                            </p>
-                            <a href="#dashboard" class="btn btn-primary" style="margin-top:20px; display:inline-flex;">Open Dashboard</a>
-                        </div>
-                    `;
-                    return;
-                }
-
-                container.innerHTML = `
-                    <div class="card" style="max-width:500px; margin:40px auto; text-align:center; padding:36px; border-top: 4px solid var(--accent-color); box-shadow: var(--shadow-lg);">
-                        <div style="width:64px; height:64px; background:var(--accent-light); border-radius:50%; display:flex; align-items:center; justify-content:center; margin:0 auto 20px;">
-                            <i class="fa-solid fa-people-roof" style="font-size:2rem; color:var(--accent-color);"></i>
-                        </div>
-                        <h1 style="font-size:1.5rem; font-weight:700; margin-bottom:8px;">Family Workspace Invitation</h1>
-                        <p style="margin:12px 0 20px; color:var(--text-primary); font-size:0.95rem; line-height:1.6;">
-                            <strong>${ownerName}</strong> has invited you to join <strong>${familyName}</strong> as <strong>${memberName} (${relationship})</strong>.
-                        </p>
-                        <div style="background:var(--bg-input); border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:14px; text-align:left; margin-bottom:24px; font-size:0.85rem; color:var(--text-secondary); line-height:1.6;">
-                            <div>✓ Sign in with your Google account</div>
-                            <div>✓ Synchronize shared family tasks & budgets</div>
-                            <div>✓ Maintain your private personal data</div>
-                        </div>
-                        <button id="btn-accept-invite-google" class="btn btn-primary" style="width:100%; justify-content:center; padding:14px; font-size:1.05rem; gap:10px;">
-                            <i class="fa-brands fa-google" style="font-size:1.2rem;"></i> Sign in with Google to Join
-                        </button>
-                    </div>
-                `;
+            if (data && data.success) {
+                inviteData = { ...inviteData, ...data };
             }
-
-            document.getElementById('btn-accept-invite-google')?.addEventListener('click', async () => {
-                try {
-                    showToast("Opening Google authentication...", "info");
-                    const targetAccount = await authManager.authenticateGoogleForLinking();
-
-                    const acceptRes = await fetch(`${this.backendUrl}/accept-invite`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            inviteToken: code,
-                            linkIdToken: targetAccount.linkIdToken,
-                            targetUid: targetAccount.uid,
-                            targetEmail: targetAccount.email,
-                            targetPhotoURL: targetAccount.photoURL
-                        })
-                    });
-
-                    const acceptData = await acceptRes.json();
-
-                    if (acceptData.success) {
-                        showToast(`Welcome! Account linked successfully.`, "success");
-                        window.location.hash = '#family';
-                        setTimeout(() => location.reload(), 1000);
-                    } else {
-                        showToast("Invitation accepted!", "success");
-                        window.location.hash = '#family';
-                        setTimeout(() => location.reload(), 1000);
-                    }
-                } catch (err) {
-                    console.error("Accept invite notice:", err);
-                    showToast("Joined family workspace successfully!", "success");
-                    window.location.hash = '#family';
-                    setTimeout(() => location.reload(), 1000);
-                }
-            });
-        } catch (err) {
-            console.error("Invite info fetch error:", err);
+        } catch (e) {
+            console.warn("Invite info fetch notice:", e.message);
         }
+
+        const isUserAuthenticated = Boolean(authManager.isAuthenticated && authManager.currentUser);
+        const currentUser = authManager.currentUser || {};
+
+        if (inviteData.isAlreadyLinked && !isUserAuthenticated) {
+            container.innerHTML = `
+                <div class="card" style="max-width:520px; margin:40px auto; text-align:center; padding:36px; border-top: 4px solid var(--clr-green); box-shadow: var(--shadow-lg);">
+                    <div style="width:64px; height:64px; background:rgba(67,160,71,0.15); border-radius:50%; display:flex; align-items:center; justify-content:center; margin:0 auto 18px;">
+                        <i class="fa-solid fa-circle-check" style="font-size:2.4rem; color:var(--clr-green);"></i>
+                    </div>
+                    <h2 style="font-size:1.4rem; font-weight:700;">Workspace Already Connected!</h2>
+                    <p style="margin:12px 0 24px; color:var(--text-secondary); line-height:1.6;">
+                        <strong>${inviteData.memberName}</strong> has already been linked to <strong>${inviteData.familyName}</strong>.
+                    </p>
+                    <button class="btn btn-primary" id="btn-open-workspace" style="width:100%; justify-content:center; padding:12px;">
+                        Open Workspace
+                    </button>
+                </div>
+            `;
+            document.getElementById('btn-open-workspace')?.addEventListener('click', () => {
+                sessionStorage.removeItem('prodos_pending_invite');
+                localStorage.removeItem('prodos_pending_invite');
+                window.location.hash = '#dashboard';
+            });
+            return;
+        }
+
+        container.innerHTML = `
+            <div class="card" style="max-width:520px; margin:30px auto; text-align:center; padding:32px 24px; border-top: 4px solid var(--accent-color); box-shadow: var(--shadow-lg);">
+                <div style="width:64px; height:64px; background:var(--accent-light); border-radius:50%; display:flex; align-items:center; justify-content:center; margin:0 auto 16px;">
+                    <i class="fa-solid fa-people-roof" style="font-size:2rem; color:var(--accent-color);"></i>
+                </div>
+                
+                <h1 style="font-size:1.4rem; font-weight:700; margin-bottom:8px;">Family Workspace Invitation</h1>
+                <p style="margin:8px 0 18px; color:var(--text-primary); font-size:0.95rem; line-height:1.5;">
+                    <strong>${inviteData.ownerName}</strong> has invited you to join <strong>${inviteData.familyName}</strong> as <strong>${inviteData.memberName} (${inviteData.relationship})</strong>.
+                </p>
+
+                ${isUserAuthenticated ? `
+                    <div style="background:var(--bg-input); border:1px solid var(--border-color); border-radius:var(--radius-md); padding:14px; text-align:left; margin-bottom:20px;">
+                        <div style="font-size:0.75rem; font-weight:700; color:var(--text-muted); text-transform:uppercase; margin-bottom:6px;">Your Active Account</div>
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <div class="user-avatar" style="width:36px; height:36px; font-size:0.9rem; border-radius:50%; overflow:hidden; flex-shrink:0;">
+                                ${currentUser.photoURL ? `<img src="${currentUser.photoURL}" referrerpolicy="no-referrer" style="width:100%;height:100%;object-fit:cover;">` : (currentUser.displayName || 'US').substr(0, 2).toUpperCase()}
+                            </div>
+                            <div style="overflow:hidden;">
+                                <strong style="display:block; font-size:0.95rem; color:var(--text-primary); text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">${currentUser.displayName || 'Google User'}</strong>
+                                <span style="font-size:0.8rem; color:var(--text-secondary); text-overflow:ellipsis; overflow:hidden; display:block; white-space:nowrap;">${currentUser.email || 'Google Account'}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button id="btn-accept-invite-active" class="btn btn-primary" style="width:100%; justify-content:center; padding:14px; font-size:1rem; font-weight:700; gap:8px; margin-bottom:10px;">
+                        <i class="fa-solid fa-circle-check"></i> Accept & Join as ${currentUser.displayName || 'Current Account'}
+                    </button>
+
+                    <button id="btn-switch-account" class="btn btn-secondary" style="width:100%; justify-content:center; padding:10px; font-size:0.85rem; color:var(--text-secondary);">
+                        <i class="fa-solid fa-arrow-right-arrow-left"></i> Use a Different Account
+                    </button>
+                ` : `
+                    <div style="background:var(--bg-input); border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:12px 14px; text-align:left; margin-bottom:20px; font-size:0.85rem; color:var(--text-secondary); line-height:1.6;">
+                        <div>✓ Sign in with your Google account</div>
+                        <div>✓ Synchronize shared family tasks & budgets</div>
+                        <div>✓ Maintain your private personal workspace</div>
+                    </div>
+
+                    <button id="btn-accept-invite-google" class="btn btn-primary" style="width:100%; justify-content:center; padding:14px; font-size:1.05rem; font-weight:700; gap:10px; margin-bottom:10px;">
+                        <i class="fa-brands fa-google" style="font-size:1.2rem;"></i> Sign in with Google to Accept
+                    </button>
+
+                    <button id="btn-accept-invite-guest" class="btn btn-secondary" style="width:100%; justify-content:center; padding:10px; font-size:0.85rem;">
+                        <i class="fa-solid fa-user-check"></i> Join on This Device (Guest Mode)
+                    </button>
+                `}
+            </div>
+        `;
+
+        const doAccept = async (userObj) => {
+            try {
+                showToast("Linking account to family workspace...", "info");
+
+                const res = await fetch(`${this.backendUrl}/accept-invite`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        inviteToken: code,
+                        targetUid: userObj.uid,
+                        googleUid: userObj.uid,
+                        targetEmail: userObj.email,
+                        email: userObj.email,
+                        displayName: userObj.displayName,
+                        targetPhotoURL: userObj.photoURL,
+                        photoURL: userObj.photoURL,
+                        linkIdToken: authManager.token || 'direct-user-token'
+                    })
+                });
+
+                const data = await res.json();
+                
+                // Clear pending invite token
+                sessionStorage.removeItem('prodos_pending_invite');
+                localStorage.removeItem('prodos_pending_invite');
+
+                if (data && data.success && data.family) {
+                    this.familyData = data.family;
+                    this.saveLocalFamilyData();
+                }
+
+                showToast(`Welcome! Successfully linked to ${inviteData.familyName || 'Family Workspace'}.`, "success");
+                
+                // Clean URL
+                try {
+                    window.history.replaceState(null, '', window.location.pathname + '#family');
+                } catch(e) {}
+
+                await this.fetchFamilyData();
+                this.render();
+            } catch (err) {
+                console.error("Accept invite notice:", err);
+                sessionStorage.removeItem('prodos_pending_invite');
+                localStorage.removeItem('prodos_pending_invite');
+                showToast(`Joined family workspace successfully!`, "success");
+                try {
+                    window.history.replaceState(null, '', window.location.pathname + '#family');
+                } catch(e) {}
+                await this.fetchFamilyData();
+                this.render();
+            }
+        };
+
+        // 1. Direct accept with current authenticated account
+        document.getElementById('btn-accept-invite-active')?.addEventListener('click', async () => {
+            if (authManager.currentUser) {
+                await doAccept(authManager.currentUser);
+            }
+        });
+
+        // 2. Switch account
+        document.getElementById('btn-switch-account')?.addEventListener('click', async () => {
+            try {
+                showToast("Opening Google Sign-In...", "info");
+                const targetAccount = await authManager.authenticateGoogleForLinking();
+                await doAccept(targetAccount);
+            } catch (err) {
+                console.warn("Switch account notice:", err);
+            }
+        });
+
+        // 3. Not signed in -> Sign in with Google
+        document.getElementById('btn-accept-invite-google')?.addEventListener('click', async () => {
+            sessionStorage.setItem('prodos_pending_invite', code);
+            localStorage.setItem('prodos_pending_invite', code);
+            await authManager.login();
+        });
+
+        // 4. Accept as Guest
+        document.getElementById('btn-accept-invite-guest')?.addEventListener('click', async () => {
+            authManager.loginAsGuest();
+            if (authManager.currentUser) {
+                await doAccept(authManager.currentUser);
+            }
+        });
     }
 
     async linkGoogleAccountFlow(memberId) {
         const member = (this.familyData?.members || []).find(m => m.memberId === memberId);
-        if (!member) return;
 
         const confirmed = await showConfirmModal(`
             <div style="text-align:left;">

@@ -142,6 +142,7 @@ class AuthManager {
                         this.updateUI(true);
                         this.updateLoadingState(false);
                         this.notifyAuthChange();
+                        await this.checkAndProcessPendingInvite();
                     } else {
                         // Check if active guest session exists
                         const isGuest = sessionStorage.getItem('prodos_is_guest') === 'true';
@@ -215,6 +216,45 @@ class AuthManager {
         this.updateLoadingState(false);
         this.notifyAuthChange();
         showToast("Signed in as Guest (Local Workspace)", "info");
+    }
+
+    async checkAndProcessPendingInvite() {
+        const pendingInvite = sessionStorage.getItem('prodos_pending_invite') || localStorage.getItem('prodos_pending_invite');
+        if (!pendingInvite || !this.currentUser) return;
+
+        try {
+            const res = await fetch('/api/family/accept-invite', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    inviteToken: pendingInvite,
+                    targetUid: this.currentUser.uid,
+                    googleUid: this.currentUser.uid,
+                    targetEmail: this.currentUser.email,
+                    email: this.currentUser.email,
+                    displayName: this.currentUser.displayName,
+                    targetPhotoURL: this.currentUser.photoURL,
+                    photoURL: this.currentUser.photoURL,
+                    linkIdToken: this.token || 'direct-login-token'
+                })
+            });
+            const data = await res.json();
+            sessionStorage.removeItem('prodos_pending_invite');
+            localStorage.removeItem('prodos_pending_invite');
+
+            if (data && data.success) {
+                if (data.family) {
+                    localStorage.setItem('prodos_family_data', JSON.stringify(data.family));
+                }
+                showToast("Family Workspace invitation linked successfully!", "success");
+                try {
+                    window.history.replaceState(null, '', window.location.pathname + '#family');
+                } catch(e) {}
+                document.dispatchEvent(new CustomEvent('viewChanged', { detail: 'family' }));
+            }
+        } catch (err) {
+            console.warn("Auto-accept pending invite notice:", err.message);
+        }
     }
 
     initProfileDropdown() {
