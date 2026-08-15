@@ -14,17 +14,21 @@ app.use(express.static(__dirname));
 let firebaseAdminInitialized = false;
 if (process.env.FIREBASE_PROJECT_ID && process.env.FIREBASE_CLIENT_EMAIL && process.env.FIREBASE_PRIVATE_KEY) {
     try {
-        admin.initializeApp({
-            credential: admin.credential.cert({
-                projectId: process.env.FIREBASE_PROJECT_ID,
-                clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-                privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n')
-            })
-        });
+        const certObj = {
+            projectId: process.env.FIREBASE_PROJECT_ID,
+            clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+            privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n')
+        };
+        if (admin.credential && admin.credential.cert) {
+            admin.initializeApp({ credential: admin.credential.cert(certObj) });
+        } else {
+            const { cert } = require('firebase-admin/app');
+            admin.initializeApp({ credential: cert(certObj) });
+        }
         firebaseAdminInitialized = true;
         console.log('Firebase Admin SDK initialized successfully.');
     } catch (err) {
-        console.error('Firebase Admin SDK initialization error:', err.message);
+        console.warn('Firebase Admin SDK notice:', err.message);
     }
 } else {
     console.warn('Firebase Admin credentials not provided in .env. Running in local/dev verification mode.');
@@ -660,6 +664,9 @@ app.post('/api/family/accept-invite', async (req, res) => {
         res.json({ success: true, message: 'Accepted invite' });
     } catch (err) {
         res.status(500).json({ error: err.message });
+    }
+});
+
 // Bank Statement Secure Validation & Parsing API
 app.post('/api/statement/parse', (req, res) => {
     try {

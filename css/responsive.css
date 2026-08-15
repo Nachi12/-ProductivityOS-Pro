@@ -157,23 +157,43 @@
     .an-donut { flex-direction: column; align-items: center; }
     .an-bar-label { width: 70px; font-size: 0.75rem; }
 
-    /* Finance layout & KPIs */
-    .fin-layout { grid-template-columns: 1fr !important; }
-    .fin-kpi-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 10px !important; }
-    .an-summary-grid, .bsa-summary-bar { grid-template-columns: repeat(2, 1fr) !important; gap: 10px !important; }
-    .an-grid-2, .an-grid-3 { grid-template-columns: 1fr !important; gap: 12px !important; }
+    /* Finance layout & Mobile Optimizations */
+    .fin-container, .fin-layout { grid-template-columns: 1fr !important; gap: var(--spacing-3) !important; width: 100% !important; }
+    .fin-sidebar { display: flex !important; flex-direction: row !important; overflow-x: auto !important; -webkit-overflow-scrolling: touch; padding: 10px 14px !important; gap: 8px !important; align-items: center !important; white-space: nowrap !important; width: 100% !important; scrollbar-width: none; box-sizing: border-box !important; }
+    .fin-sidebar::-webkit-scrollbar { display: none; }
+    .fin-sidebar h3 { display: none !important; }
+    .fin-person-item { display: inline-flex !important; flex-shrink: 0 !important; align-items: center !important; margin-bottom: 0 !important; background: var(--bg-hover) !important; border-radius: var(--radius-md) !important; }
+    .fin-person-btn { width: auto !important; margin-bottom: 0 !important; white-space: nowrap !important; padding: 8px 14px !important; flex-shrink: 0 !important; }
+    .fin-sidebar > div:last-child { border-top: none !important; border-left: 1px solid var(--border-color) !important; margin-top: 0 !important; padding-top: 0 !important; padding-left: 8px !important; flex-shrink: 0 !important; }
+    .fin-panels-grid { grid-template-columns: 1fr !important; gap: var(--spacing-3) !important; width: 100% !important; }
 
-    /* Pill Segment Toggles touch scroll */
-    .fin-type-toggle, .an-pill-toggle { display: flex !important; overflow-x: auto !important; -webkit-overflow-scrolling: touch; width: 100%; flex-wrap: nowrap !important; }
-    .fin-type-btn, .an-pill-btn { flex-shrink: 0; padding: 8px 14px; font-size: 0.8rem; }
+    .fin-kpi-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 8px !important; width: 100% !important; }
+    .fin-kpi { padding: 12px 14px !important; gap: 6px !important; }
+    .fin-kpi-header h4 { font-size: 0.68rem !important; }
+    .fin-kpi-icon { width: 30px !important; height: 30px !important; font-size: 0.85rem !important; }
+    .fin-kpi-data .value { font-size: 1.15rem !important; }
+
+    .an-summary-grid, .bsa-summary-bar { grid-template-columns: repeat(2, 1fr) !important; gap: 8px !important; width: 100% !important; }
+    .an-grid-2, .an-grid-3 { grid-template-columns: 1fr !important; gap: 12px !important; width: 100% !important; }
+
+    /* Section Header & Segment Toggles touch scroll */
+    .fin-section-header { flex-direction: column !important; align-items: stretch !important; gap: 10px !important; width: 100% !important; }
+    .fin-type-toggle, .an-pill-toggle { display: flex !important; overflow-x: auto !important; -webkit-overflow-scrolling: touch; width: 100% !important; max-width: 100% !important; flex-wrap: nowrap !important; scrollbar-width: none; box-sizing: border-box !important; padding: 4px !important; gap: 4px !important; }
+    .fin-type-toggle::-webkit-scrollbar, .an-pill-toggle::-webkit-scrollbar { display: none; }
+    .fin-type-btn, .an-pill-btn { flex-shrink: 0 !important; flex: 1 0 auto !important; padding: 8px 12px !important; font-size: 0.78rem !important; text-align: center !important; white-space: nowrap !important; }
+
+    /* Loans & Forms on Mobile */
+    .loan-header { flex-direction: column !important; align-items: flex-start !important; gap: 8px !important; }
+    .loan-stats { grid-template-columns: repeat(2, 1fr) !important; gap: 8px !important; }
+    .fin-form-row { grid-template-columns: 1fr !important; gap: 10px !important; width: 100% !important; }
 
     /* Controls bar flex column */
-    .an-controls-bar, .bsa-toolbar { flex-direction: column !important; align-items: stretch !important; gap: 12px !important; }
-    .an-controls-group { flex-direction: column !alignment: stretch; gap: 8px; width: 100%; }
+    .an-controls-bar, .bsa-toolbar { flex-direction: column !important; align-items: stretch !important; gap: 12px !important; width: 100% !important; box-sizing: border-box !important; }
+    .an-controls-group { flex-direction: column !important; align-items: stretch !important; gap: 8px !important; width: 100% !important; }
 
     /* Tables mobile scroll */
-    .bsa-table-wrap, .table-responsive { overflow-x: auto !important; -webkit-overflow-scrolling: touch; width: 100%; }
-    .bsa-table, .data-table { min-width: 600px; }
+    .bsa-table-wrap, .table-responsive { width: 100% !important; max-width: 100% !important; overflow-x: auto !important; -webkit-overflow-scrolling: touch; }
+    .bsa-table, .data-table { min-width: 560px !important; }
 
     /* Modal */
     .gm-dialog,

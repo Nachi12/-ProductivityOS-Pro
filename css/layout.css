@@ -131,8 +131,7 @@ body {
 }
 .topbar-search:focus-within { border-color: var(--accent-color); box-shadow: 0 0 0 2px var(--accent-light); }
 
-.topbar-actions { display: flex; align-items: center; gap: var(--spacing-3); }
-.user-avatar { width: 36px; height: 36px; border-radius: 50%; background-color: var(--accent-color); color: var(--accent-text, #0F0F0F); display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 0.9rem; }
+.user-avatar { width: 36px; height: 36px; border-radius: 50%; background-color: var(--accent-color); color: var(--accent-text, #0F0F0F); display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 0.9rem; overflow: hidden; flex-shrink: 0; }
 
 /* Views Container */
 .views-container {

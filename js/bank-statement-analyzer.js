@@ -28,7 +28,7 @@ export class BankStatementAnalyzer {
         const style = document.createElement('style');
         style.id = 'bsa-styles';
         style.textContent = `
-            .bsa-container { display: flex; flex-direction: column; gap: var(--spacing-4); }
+            .bsa-container { display: flex; flex-direction: column; gap: var(--spacing-4); width: 100%; min-width: 0; }
 
             /* Upload Dropzone */
             .bsa-upload-card { background: var(--bg-card); border: 2px dashed var(--border-color); border-radius: var(--radius-lg); padding: 48px 24px; text-align: center; transition: all 0.2s ease; cursor: pointer; }
@@ -43,15 +43,16 @@ export class BankStatementAnalyzer {
             .bsa-progress-bar-fill { height: 100%; width: 0%; background: var(--accent-color); transition: width 0.3s ease; border-radius: 5px; }
 
             /* Review Screen */
-            .bsa-summary-bar { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: var(--spacing-3); margin-bottom: var(--spacing-4); }
+            .bsa-summary-bar { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: var(--spacing-3); margin-bottom: var(--spacing-4); width: 100%; }
             .bsa-summary-card { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 14px 18px; }
             .bsa-summary-label { font-size: 0.72rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
-            .bsa-summary-val { font-size: 1.25rem; font-weight: 700; margin-top: 4px; color: var(--text-primary); }
+            .bsa-summary-val { font-size: 1.25rem; font-weight: 700; margin-top: 4px; color: var(--text-primary); word-break: break-all; }
 
-            .bsa-toolbar { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 12px 18px; margin-bottom: 16px; }
+            .bsa-toolbar { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 12px 18px; margin-bottom: 16px; width: 100%; box-sizing: border-box; }
 
             /* Table Layout */
-            .bsa-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+            .bsa-table-wrap { width: 100%; max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+            .bsa-table { width: 100%; min-width: 580px; border-collapse: collapse; font-size: 0.88rem; }
             .bsa-table th, .bsa-table td { padding: 10px 12px; border-bottom: 1px solid var(--border-light); white-space: nowrap; }
             .bsa-table th { text-align: left; font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; background: var(--bg-input); }
             .bsa-table tr:hover { background: var(--bg-hover); }
@@ -63,10 +64,25 @@ export class BankStatementAnalyzer {
             .bsa-badge.review { background: rgba(244,81,30,0.12); color: var(--clr-orange); }
             .bsa-badge.dup { background: rgba(229,57,53,0.12); color: var(--clr-red); }
 
-            /* Mobile Card Layout for Review */
+            /* Mobile Breakdown */
             @media (max-width: 768px) {
-                .bsa-table-wrap { overflow-x: auto; }
-                .bsa-toolbar { flex-direction: column; align-items: stretch; }
+                .bsa-upload-card { padding: 32px 16px; }
+                .bsa-upload-icon { font-size: 2.4rem; margin-bottom: 12px; }
+                .bsa-upload-title { font-size: 1.15rem; }
+                .bsa-upload-subtitle { font-size: 0.85rem; margin-bottom: 16px; }
+                .bsa-summary-bar { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+                .bsa-summary-card { padding: 10px 14px; }
+                .bsa-summary-val { font-size: 1.1rem; }
+                .bsa-toolbar { flex-direction: column; align-items: stretch; gap: 12px; padding: 12px 14px; }
+                .bsa-toolbar > div { flex-direction: column; align-items: stretch; width: 100%; gap: 10px; }
+                .bsa-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+                #bsa-btn-confirm-import { width: 100%; justify-content: center; padding: 10px; font-size: 0.88rem; }
+                #bsa-assign-person-select { width: 100%; }
+            }
+
+            @media (max-width: 480px) {
+                .bsa-summary-bar { grid-template-columns: 1fr 1fr; gap: 6px; }
+                .bsa-upload-card { padding: 24px 12px; }
             }
         `;
         document.head.appendChild(style);

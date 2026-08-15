@@ -152,16 +152,23 @@ export class ProfileManager {
 
     renderTabContent(activeTab, user, members) {
         if (activeTab === 'personal') {
+            const isGoogle = user.isGoogle || (user.photoURL && user.photoURL.length > 0);
             return `
                 <div class="card">
                     <div class="card-header" style="text-align:center; padding: 24px 16px 16px;">
                         <div style="width: 80px; height: 80px; margin: 0 auto 14px; border-radius: 50%; border: 3px solid var(--accent-color); overflow: hidden; background: var(--bg-hover); display:flex; align-items:center; justify-content:center;">
-                            ${user.photoURL ? `<img src="${user.photoURL}" style="width:100%;height:100%;object-fit:cover;">` : `<i class="fa-solid fa-user" style="font-size:2.5rem; color:var(--text-muted);"></i>`}
+                            ${user.photoURL ? `<img src="${user.photoURL}" referrerpolicy="no-referrer" style="width:100%;height:100%;object-fit:cover;">` : `<i class="fa-solid fa-user" style="font-size:2.5rem; color:var(--text-muted);"></i>`}
                         </div>
                         <h2 style="font-size:1.25rem; font-weight:700; color:var(--text-primary); margin-bottom:4px;">${user.displayName}</h2>
-                        <span class="badge badge-success" style="font-size:0.78rem; padding:4px 12px; border-radius:12px;">
-                            <i class="fa-brands fa-google"></i> Google Account Linked
-                        </span>
+                        ${isGoogle ? `
+                            <span class="badge badge-success" style="font-size:0.78rem; padding:4px 12px; border-radius:12px;">
+                                <i class="fa-brands fa-google"></i> Google Account Linked
+                            </span>
+                        ` : `
+                            <span class="badge badge-warning" style="font-size:0.78rem; padding:4px 12px; border-radius:12px;">
+                                <i class="fa-solid fa-user"></i> Guest Account (Local)
+                            </span>
+                        `}
                     </div>
                     <div class="card-body" style="border-top: 1px solid var(--border-light); padding-top: 16px;">
                         <div style="margin-bottom:14px;">
@@ -171,6 +178,11 @@ export class ProfileManager {
                         <button class="btn btn-secondary" id="btn-edit-profile-name" style="width:100%; justify-content:center; margin-top:8px;">
                             <i class="fa-solid fa-pen-to-square"></i> Edit Display Name
                         </button>
+                        ${!isGoogle ? `
+                            <button class="btn btn-primary" id="btn-profile-connect-google" style="width:100%; justify-content:center; margin-top:10px; gap:8px;">
+                                <i class="fa-brands fa-google"></i> Connect Google Account
+                            </button>
+                        ` : ''}
                     </div>
                 </div>
             `;
@@ -358,6 +370,7 @@ export class ProfileManager {
 
         document.getElementById('profile-logout-btn')?.addEventListener('click', () => authManager.logout());
         document.getElementById('profile-btn-add-member')?.addEventListener('click', () => this.addMember());
+        document.getElementById('btn-profile-connect-google')?.addEventListener('click', () => authManager.login());
 
         document.getElementById('btn-edit-profile-name')?.addEventListener('click', async () => {
             const current = authManager.currentUser ? authManager.currentUser.displayName : '';
