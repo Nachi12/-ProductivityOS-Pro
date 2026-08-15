@@ -131,7 +131,43 @@ body {
 }
 .topbar-search:focus-within { border-color: var(--accent-color); box-shadow: 0 0 0 2px var(--accent-light); }
 
-.user-avatar { width: 36px; height: 36px; border-radius: 50%; background-color: var(--accent-color); color: var(--accent-text, #0F0F0F); display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 0.9rem; overflow: hidden; flex-shrink: 0; }
+.topbar-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-3);
+    flex-shrink: 0;
+}
+
+#topbar-user-profile-btn {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    text-decoration: none;
+    padding: 4px 8px;
+    border-radius: var(--radius-sm);
+    transition: background var(--transition-fast);
+    flex-shrink: 0;
+}
+
+#topbar-user-profile-btn:hover {
+    background: var(--bg-hover);
+}
+
+.user-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background-color: var(--accent-color);
+    color: var(--accent-text, #0F0F0F);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 0.9rem;
+    overflow: hidden;
+    flex-shrink: 0;
+}
 
 /* Views Container */
 .views-container {

@@ -27,7 +27,7 @@ export class StorageManager {
     getDefaultState() {
         const today = new Date().toISOString().split('T')[0];
         return {
-            settings: { theme: 'system', accentColor: 'blue' },
+            settings: { theme: 'dark', accentColor: 'electric' },
             tasks: [
                 { id: 't1', title: 'Complete Q3 Product Architecture Deck', priority: 'High', project: 'Enterprise OS', completed: true, date: today, dueDate: today, category: 'Business' },
                 { id: 't2', title: 'Finalize Mobile App Responsive Controls', priority: 'High', project: 'Mobile App', completed: false, date: today, dueDate: today, category: 'Engineering' },

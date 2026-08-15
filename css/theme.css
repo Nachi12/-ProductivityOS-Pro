@@ -1,5 +1,38 @@
 /* Dark & Light Theme System */
 
+/* Dark Theme - Glassmorphism Cyber (Default) */
+:root, [data-theme="dark"], [data-theme="system"] {
+    --bg-main: #0F0F0F; /* Pilo Black */
+    --bg-sidebar: rgba(46, 46, 46, 0.4); /* Charcoal Glass */
+    --bg-card: rgba(46, 46, 46, 0.4);
+    --bg-hover: rgba(199, 255, 46, 0.1); /* Electric Green hover */
+    --bg-input: rgba(15, 15, 15, 0.6);
+    
+    --text-primary: #FFFFFF; /* Pure White */
+    --text-secondary: #808080; /* Mid Gray */
+    --text-muted: rgba(128, 128, 128, 0.7);
+    
+    --border-color: rgba(255, 255, 255, 0.08);
+    --border-light: rgba(255, 255, 255, 0.04);
+    
+    --shadow-sm: 0 4px 6px rgba(0, 0, 0, 0.2);
+    --shadow-md: 0 8px 12px rgba(0, 0, 0, 0.3);
+    --shadow-lg: 0 12px 24px rgba(0, 0, 0, 0.4);
+    
+    --accent-color: #C7FF2E; /* Electric Green */
+    --accent-hover: #b1e626; 
+    --accent-light: rgba(199, 255, 46, 0.15);
+    --accent-text: #0F0F0F;
+}
+
+body, body[data-theme="dark"], body[data-theme="system"] {
+    background: radial-gradient(circle at 15% 50%, rgba(199, 255, 46, 0.08) 0%, transparent 50%),
+                radial-gradient(circle at 85% 30%, rgba(199, 255, 46, 0.05) 0%, transparent 50%),
+                #0F0F0F !important;
+    background-attachment: fixed !important;
+    color: #FFFFFF !important;
+}
+
 /* Light Theme Variables */
 [data-theme="light"] {
     --bg-main: #F4F6F9;
@@ -28,36 +61,4 @@
 body[data-theme="light"] {
     background: #F4F6F9 !important;
     color: var(--text-primary) !important;
-}
-
-/* Dark Theme - Glassmorphism */
-[data-theme="dark"] {
-    --bg-main: #0F0F0F; /* Pilo Black */
-    --bg-sidebar: rgba(46, 46, 46, 0.4); /* Charcoal Glass */
-    --bg-card: rgba(46, 46, 46, 0.4);
-    --bg-hover: rgba(199, 255, 46, 0.1); /* Electric Green hover */
-    --bg-input: rgba(15, 15, 15, 0.6);
-    
-    --text-primary: #FFFFFF; /* Pure White */
-    --text-secondary: #808080; /* Mid Gray */
-    --text-muted: rgba(128, 128, 128, 0.7);
-    
-    --border-color: rgba(255, 255, 255, 0.08);
-    --border-light: rgba(255, 255, 255, 0.04);
-    
-    --shadow-sm: 0 4px 6px rgba(0, 0, 0, 0.2);
-    --shadow-md: 0 8px 12px rgba(0, 0, 0, 0.3);
-    --shadow-lg: 0 12px 24px rgba(0, 0, 0, 0.4);
-    
-    --accent-color: #C7FF2E; /* Electric Green */
-    --accent-hover: #b1e626; 
-    --accent-light: rgba(199, 255, 46, 0.15);
-    --accent-text: #0F0F0F;
-}
-
-body[data-theme="dark"] {
-    background: radial-gradient(circle at 15% 50%, rgba(199, 255, 46, 0.08) 0%, transparent 50%),
-                radial-gradient(circle at 85% 30%, rgba(199, 255, 46, 0.05) 0%, transparent 50%),
-                var(--bg-main) !important;
-    background-attachment: fixed !important;
 }
