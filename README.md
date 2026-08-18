@@ -1,428 +1,113 @@
-# 🚀 ProductivityOS Pro
+# ProductivityOS Pro — Enterprise MERN Personal Finance SaaS
 
-> A modern, enterprise-grade productivity operating system built with **HTML5, CSS3, and Vanilla JavaScript**.
-
-![License](https://img.shields.io/badge/license-MIT-blue.svg)
-![HTML5](https://img.shields.io/badge/HTML5-E34F26?logo=html5\&logoColor=white)
-![CSS3](https://img.shields.io/badge/CSS3-1572B6?logo=css3\&logoColor=white)
-![JavaScript](https://img.shields.io/badge/JavaScript-ES6-F7DF1E?logo=javascript\&logoColor=black)
-![Responsive](https://img.shields.io/badge/Responsive-Yes-success)
-![Offline](https://img.shields.io/badge/Offline-Ready-blue)
+> A production-ready, multi-user personal finance and bank statement analysis platform built with TypeScript, Node.js, Express, MongoDB, and React/ES Modules. Features integer minor unit (paise) money handling, idempotent statement parsing, SHA-256 duplicate transaction prevention, and layered architecture.
 
 ---
 
-# 📖 Overview
+## Technical Highlights & Architecture
 
-ProductivityOS Pro is a premium personal productivity application inspired by modern productivity tools such as:
-
-* Notion
-* ClickUp
-* Linear
-* Motion
-* Sunsama
-* TickTick
-* Todoist
-
-The goal of this project is to provide a complete personal operating system that helps users manage:
-
-* ✅ Tasks
-* 🎯 Goals
-* 🚀 Projects
-* 📅 Calendar
-* 📚 Knowledge
-* 📝 Notes
-* 💰 Finance
-* 💪 Habits
-* 📈 Analytics
-
-without requiring any backend services.
-
-Everything runs locally inside the browser.
+- **Layered Backend Architecture**: Clean separation into `Routes` → `Controllers` → `Services` → `Mongoose Models`.
+- **Exact Monetary Calculation**: Stores all monetary values internally as integer minor units (`paise`) to prevent floating-point representation & rounding drift. Formatted using the **Indian Numbering System** (`₹10,00,000.00`).
+- **Idempotent Bank Statement Pipeline**: Extensible strategy parser engine (CSV/PDF) that generates SHA-256 transaction fingerprints (`sha256(userId + date + amount + description + refNo)`), detects duplicate uploads, supports batch importing, and implements safe cascade statement deletion.
+- **Multi-User Data Isolation & Anti-IDOR Protection**: Strict session/token authentication enforcement on every REST API endpoint guaranteeing zero cross-tenant data leaks.
+- **Security & Reliability**: Helmet HTTP security headers, CORS protection, rate limiting (`express-rate-limit`), Zod schema request validation, and centralized error handling.
+- **Comprehensive Automated Testing**: Full test suite built withVitest/Jest covering money utilities, loan EMI calculations, statement parsing, and fingerprint generation.
 
 ---
 
-# ✨ Features
+## Tech Stack
 
-## Dashboard
-
-* Personalized greeting
-* Productivity KPIs
-* Today's Focus
-* Top Priorities
-* Brain Dump
-* Quick Capture
-* Upcoming Tasks
-* Recent Projects
-* Analytics Overview
-* Productivity Charts
+| Domain | Technology |
+| :--- | :--- |
+| **Language** | TypeScript (ES2022) / JavaScript |
+| **Backend Framework** | Node.js, Express.js |
+| **Database & ORM** | MongoDB, Mongoose |
+| **Security & Auth** | JWT, Bcrypt, Helmet, Express Rate Limit, Firebase Admin |
+| **Validation** | Zod Schema Validator |
+| **Testing** | Vitest / Jest / Tsx Automated Suite |
+| **Documentation & CI/CD** | OpenAPI 3.0, GitHub Actions Workflow |
 
 ---
 
-## Task Manager
+## System Architecture
 
-* Create Tasks
-* Edit Tasks
-* Delete Tasks
-* Search
-* Filter
-* Sort
-* Categories
-* Priorities
-* Due Dates
-* Progress
-* Status
-* Drag & Drop
-* Kanban View
-* List View
-
----
-
-## Project Management
-
-* Project Dashboard
-* Milestones
-* Progress Tracking
-* Timeline
-* Deliverables
-* Budget
-* Risk Tracking
-* Dependencies
-
----
-
-## Goal Tracking
-
-* SMART Goals
-* OKRs
-* Milestones
-* Progress
-* Quarterly Goals
-* Yearly Goals
-
----
-
-## Habit Tracker
-
-* Daily Habits
-* Weekly Habits
-* Monthly Habits
-* Habit Streaks
-* Completion Percentage
-* Habit Statistics
-
----
-
-## Finance
-
-* Income
-* Expenses
-* Savings
-* Budget
-* Investments
-* Loan Tracking
-* Reports
-
----
-
-## Knowledge Vault
-
-Inspired by the PARA Method.
-
-* Projects
-* Areas
-* Resources
-* Archive
-
----
-
-## Reading Tracker
-
-Track
-
-* Books
-* Courses
-* Podcasts
-* Videos
-* Articles
-
----
-
-## Notes
-
-* Rich Notes
-* Categories
-* Search
-* Archive
-
----
-
-## Analytics
-
-* Productivity Score
-* Habit Completion
-* Focus Hours
-* Task Statistics
-* Weekly Reports
-* Monthly Reports
-
----
-
-## Theme Engine
-
-* Light Mode
-* Dark Mode
-* System Theme
-* Accent Colors
-
----
-
-## Import / Export
-
-* Export JSON
-* Import JSON
-* Local Backup
-* Restore Backup
-
----
-
-# 🏗️ Tech Stack
-
-| Technology         | Usage                |
-| ------------------ | -------------------- |
-| HTML5              | Structure            |
-| CSS3               | Styling              |
-| Vanilla JavaScript | Application Logic    |
-| ES Modules         | Modular Architecture |
-| LocalStorage       | Persistent Storage   |
-| Chart.js           | Analytics Charts     |
-| SortableJS         | Drag & Drop          |
-
----
-
-# 📂 Project Structure
-
-```text
-ProductivityOS/
-
-│
-├── index.html
-├── manifest.json
-├── README.md
-│
-├── assets/
-│   ├── icons/
-│   ├── images/
-│   ├── fonts/
-│   └── sounds/
-│
-├── css/
-│   ├── reset.css
-│   ├── variables.css
-│   ├── theme.css
-│   ├── layout.css
-│   ├── components.css
-│   ├── utilities.css
-│   ├── animations.css
-│   ├── responsive.css
-│   ├── dashboard.css
-│   ├── tasks.css
-│   ├── projects.css
-│   ├── calendar.css
-│   ├── habits.css
-│   ├── finance.css
-│   ├── analytics.css
-│   └── settings.css
-│
-├── js/
-│   ├── main.js
-│   ├── router.js
-│   ├── storage.js
-│   ├── dashboard.js
-│   ├── tasks.js
-│   ├── projects.js
-│   ├── goals.js
-│   ├── habits.js
-│   ├── calendar.js
-│   ├── finance.js
-│   ├── analytics.js
-│   ├── settings.js
-│   ├── toast.js
-│   ├── search.js
-│   ├── notifications.js
-│   └── helpers.js
-│
-├── data/
-│
-└── exports/
+```
+[ Frontend Client ] ──(REST / HTTPS)──> [ Express REST API v1 ]
+                                                  │
+             ┌────────────────────────────────────┴────────────────────────────────────┐
+             ▼                                    ▼                                    ▼
+    [ Auth Middleware ]                 [ Controllers Layer ]               [ Security & Headers ]
+    (JWT / Token Check)                 (Auth, Transaction,                 (Helmet / RateLimit)
+                                         Statement, Analytics)
+                                                  │
+                                                  ▼
+                                         [ Services Layer ]
+                                         (Finance, Statement,
+                                          Parsers Strategy)
+                                                  │
+                                                  ▼
+                                      [ MongoDB Domain Models ]
+                                      (User, Transaction, Loan,
+                                       BankStatement, ImportBatch)
 ```
 
 ---
 
-# 🚀 Getting Started
+## REST API Specification
 
-## Clone the Repository
+Detailed OpenAPI 3.0 specification available in [`docs/openapi.json`](docs/openapi.json).
 
+| Method | Endpoint | Description | Auth Required |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/api/v1/health` | Service health check | No |
+| `POST` | `/api/v1/auth/register` | Register user account | No (Rate limited) |
+| `POST` | `/api/v1/auth/login` | Authenticate user & issue JWT | No (Rate limited) |
+| `GET` | `/api/v1/transactions` | List paginated transactions (filter, search) | Yes |
+| `POST` | `/api/v1/transactions` | Create manual income/expense entry | Yes |
+| `POST` | `/api/v1/statements/upload` | Upload & parse bank statement | Yes |
+| `POST` | `/api/v1/statements/:id/import` | Import confirmed statement transactions | Yes |
+| `DELETE` | `/api/v1/statements/:id` | Cascade delete statement & batch transactions | Yes |
+| `GET` | `/api/v1/analytics/summary` | Get financial summary (Net cash flow, EMI, savings rate) | Yes |
+
+---
+
+## Local Installation & Setup Guide
+
+### Prerequisites
+- **Node.js**: v20+
+- **MongoDB**: Local instance running on `mongodb://127.0.0.1:27017` or MongoDB Atlas URI
+
+### 1. Clone & Install Dependencies
 ```bash
-git clone https://github.com/yourusername/ProductivityOS.git
+git clone https://github.com/Nachi12/-ProductivityOS-Pro.git
+cd -ProductivityOS-Pro
+npm install --legacy-peer-deps
 ```
 
----
-
-## Navigate
-
+### 2. Environment Configuration
+Copy `.env.example` to `.env`:
 ```bash
-cd ProductivityOS
+cp .env.example .env
 ```
 
----
-
-## Run with Live Server
-
-Open in VS Code.
-
-Install **Live Server**.
-
-Right-click
-
-```
-index.html
-```
-
-Select
-
-```
-Open with Live Server
-```
-
----
-
-Or
-
+### 3. Run Automated Tests
 ```bash
-python3 -m http.server 5500
+npm test
 ```
 
-Visit
-
-```
-http://localhost:5500
-```
-
----
-
-# 💾 Storage
-
-This application uses **LocalStorage**.
-
-No backend required.
-
-No user account required.
-
-No database required.
-
-All data stays on your device.
-
----
-
-# 🎨 Design Philosophy
-
-This project follows the design principles of:
-
-* Apple Human Interface Guidelines
-* Material Design 3
-* Linear.app
-* Notion
-* Arc Browser
-
----
-
-# 🌙 Themes
-
-* Light
-* Dark
-* System Theme
-
----
-
-# 📱 Responsive
-
-Supports
-
-* Desktop
-* Laptop
-* Tablet
-* Mobile
-
----
-
-# 🔥 Future Features
-
-* PWA Support
-* Cloud Sync
-* Firebase Authentication
-* AI Assistant
-* Calendar Sync
-* Google Tasks Sync
-* Google Calendar Sync
-* Notifications
-* Voice Commands
-* AI Planning
-* Markdown Notes
-* Rich Text Editor
-* Offline First
-* Widgets
-* Pomodoro Analytics
-* Time Tracking
-* Focus Sessions
-* Team Collaboration
-* Multi Workspace
-
----
-
-# 🤝 Contributing
-
-Contributions are welcome.
-
-1. Fork the repository.
-2. Create a feature branch.
-
+### 4. Build TypeScript Server
 ```bash
-git checkout -b feature/my-feature
+npm run build
 ```
 
-3. Commit changes.
-
+### 5. Start Development Server
 ```bash
-git commit -m "Add amazing feature"
+npm start
 ```
-
-4. Push.
-
-```bash
-git push origin feature/my-feature
-```
-
-5. Open a Pull Request.
+The server will run on **`http://localhost:3000`**.
 
 ---
 
-# 📜 License
+## License
 
-Licensed under the MIT License.
-
-Feel free to use this project for learning, personal projects, and open-source contributions.
-
----
-
-# 👨‍💻 Author
-
-**Nachiketa NR**
-
-* GitHub: https://github.com/Nachi12
-* LinkedIn: https://linkedin.com/in/nachiketa12
-
----
-
-## ⭐ Support
-
-If you find this project useful, consider giving it a ⭐ on GitHub. It helps others discover the project and motivates future development.
+ISC License. Built as an engineering project demonstrating Full Stack MERN development.
