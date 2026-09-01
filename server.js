@@ -13,6 +13,11 @@ app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.static(__dirname));
 
+// Favicon Fallback Route
+app.get('/favicon.ico', (req, res) => {
+  res.sendFile(require('path').join(__dirname, 'assets/icons/icon-192x192.png'));
+});
+
 // Initialize Firebase Admin SDK if credentials exist
 let firebaseAdminInitialized = false;
 if (process.env.FIREBASE_PROJECT_ID && process.env.FIREBASE_CLIENT_EMAIL && process.env.FIREBASE_PRIVATE_KEY) {

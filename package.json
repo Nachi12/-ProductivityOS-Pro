@@ -1,7 +1,7 @@
 {
-  "name": "productivityos_pro",
+  "name": "financeos_pro",
   "version": "1.0.0",
-  "description": "A complete, production-ready, enterprise-grade personal productivity web application built entirely with HTML5, CSS3, and Vanilla JavaScript (ES Modules).",
+  "description": "Enterprise Financial Workspace & Wealth Operating System built with HTML5, CSS3, Express, and Vanilla JavaScript.",
   "main": "index.js",
   "scripts": {
     "start": "node server.js",

@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>ProductivityOS Pro</title>
+    <title>FinanceOS Pro - Enterprise Financial & Wealth Management System</title>
     <link rel="icon" href="data:,">
     
     <!-- Meta Tags & PWA -->
-    <meta name="description" content="Premium Enterprise-Grade Productivity Operating System">
+    <meta name="description" content="Enterprise Financial Workspace & Wealth Operating System">
     <meta name="theme-color" content="#ffffff">
     <link rel="manifest" href="manifest.json">
     
@@ -61,10 +61,10 @@
     <div id="auth-overlay" style="display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: var(--bg-primary); z-index: 10000; align-items: center; justify-content: center; flex-direction: column; text-align: center; padding: 20px;">
         <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 40px 32px; max-width: 440px; width: 100%; max-height: 90vh; overflow-y: auto; box-shadow: var(--shadow-lg);">
             <div style="width: 56px; height: 56px; background: var(--accent-light); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px;">
-                <i class="fa-solid fa-layer-group" style="font-size: 1.8rem; color: var(--accent-color);"></i>
+                <i class="fa-solid fa-vault" style="font-size: 1.8rem; color: var(--accent-color);"></i>
             </div>
-            <h1 style="font-size: 1.5rem; font-weight: 700; margin-bottom: 8px;">ProductivityOS Pro</h1>
-            <p style="margin-bottom: 24px; color: var(--text-muted); font-size: 0.92rem; line-height: 1.5;">Sign in with your Google account to access your synchronized personal & family workspace.</p>
+            <h1 style="font-size: 1.5rem; font-weight: 700; margin-bottom: 8px;">FinanceOS Pro</h1>
+            <p style="margin-bottom: 24px; color: var(--text-muted); font-size: 0.92rem; line-height: 1.5;">Sign in with your account to access your central financial ledger, statement parser & family accounts.</p>
             <button id="auth-login-btn" class="btn btn-primary" style="font-size: 1.05rem; padding: 14px 24px; width: 100%; justify-content: center; gap: 10px;">
                 <i class="fa-brands fa-google" style="font-size: 1.2rem;"></i> Sign in with Google
             </button>
@@ -77,7 +77,7 @@
                 <i class="fa-solid fa-user"></i> Continue as Guest / Offline
             </button>
             <p style="margin-top: 20px; font-size: 0.78rem; color: var(--text-muted);">
-                <i class="fa-solid fa-shield-halved"></i> Secure Google Identity Authentication.
+                <i class="fa-solid fa-shield-halved"></i> Bank-Grade Privacy & Local Storage Encryption.
             </p>
         </div>
     </div>
@@ -86,65 +86,159 @@
     <aside id="sidebar" class="sidebar">
         <div class="sidebar-header">
             <div class="brand">
-                <div class="brand-logo"><i class="fa-solid fa-layer-group"></i></div>
-                <span class="brand-text">ProductivityOS</span>
+                <div class="brand-logo"><i class="fa-solid fa-vault" style="color: var(--accent-color);"></i></div>
+                <div class="brand-title-wrap" style="display:flex; flex-direction:column;">
+                    <span class="brand-text" style="font-weight:700; font-size:0.98rem; line-height:1.2;">FinanceOS Pro</span>
+                    <span class="brand-subtext" style="font-size:0.7rem; color:var(--text-muted); font-weight:500;">Financial Operating System</span>
+                </div>
             </div>
             <button id="sidebar-toggle" aria-label="Toggle Sidebar"><i class="fa-solid fa-chevron-left"></i></button>
         </div>
+
+        <div class="sidebar-ai-chip" style="padding: 10px 14px; border-bottom: 1px solid var(--border-light);">
+            <a href="#ai-copilot" class="nav-item ai-chip-btn" data-view="ai-copilot" style="background: linear-gradient(135deg, rgba(168,85,247,0.12) 0%, rgba(35,131,226,0.12) 100%); border: 1px solid rgba(168,85,247,0.25); border-radius: var(--radius-md); padding: 8px 12px; color: #a855f7; font-weight: 600; text-decoration: none; display: flex; align-items: center; gap: 8px;">
+                <i class="fa-solid fa-wand-magic-sparkles" style="color: #a855f7;"></i>
+                <span class="nav-text" style="font-size:0.85rem;">Ask AI Copilot</span>
+            </a>
+        </div>
         
         <nav class="sidebar-nav">
+            <!-- 🏠 HOME -->
             <div class="nav-section">
-                <span class="nav-section-title">Workspace</span>
-                <a href="#dashboard" class="nav-item active" data-view="dashboard">
-                    <i class="fa-solid fa-house"></i> <span class="nav-text">Dashboard</span>
-                </a>
-                <a href="#tasks" class="nav-item" data-view="tasks">
-                    <i class="fa-solid fa-circle-check"></i> <span class="nav-text">Tasks</span>
-                </a>
-                <a href="#projects" class="nav-item" data-view="projects">
-                    <i class="fa-solid fa-folder-tree"></i> <span class="nav-text">Projects</span>
-                </a>
-                <a href="#goals" class="nav-item" data-view="goals">
-                    <i class="fa-solid fa-bullseye"></i> <span class="nav-text">Goals</span>
-                </a>
-                <a href="#calendar" class="nav-item" data-view="calendar">
-                    <i class="fa-regular fa-calendar"></i> <span class="nav-text">Calendar</span>
+                <span class="nav-section-title"><i class="fa-solid fa-house" style="margin-right:6px; color:var(--accent-color);"></i> Home</span>
+                <a href="#finance" class="nav-item active" data-view="finance">
+                    <i class="fa-solid fa-chart-pie"></i> <span class="nav-text">Overview</span>
                 </a>
             </div>
 
-            <div class="nav-section">
-                <span class="nav-section-title">Life & Growth</span>
-                <a href="#habits" class="nav-item" data-view="habits">
-                    <i class="fa-solid fa-repeat"></i> <span class="nav-text">Habits</span>
-                </a>
-                <a href="#finance" class="nav-item" data-view="finance">
-                    <i class="fa-solid fa-chart-pie"></i> <span class="nav-text">Finance</span>
-                </a>
-                <a href="#reading" class="nav-item" data-view="reading">
-                    <i class="fa-solid fa-book-open"></i> <span class="nav-text">Reading</span>
-                </a>
+            <!-- 💰 MONEY -->
+            <div class="nav-section" data-section="money">
+                <span class="nav-section-title collapsible-head" data-collapsible="money" style="display:flex; justify-content:space-between; align-items:center; cursor:pointer;">
+                    <span><i class="fa-solid fa-wallet" style="margin-right:6px; color:var(--clr-green);"></i> Money</span>
+                    <i class="fa-solid fa-chevron-down section-chevron" style="font-size:0.7rem; transition:transform 0.2s;"></i>
+                </span>
+                <div class="nav-section-items">
+                    <a href="#money" class="nav-item" data-view="money">
+                        <i class="fa-solid fa-receipt"></i> <span class="nav-text">Transactions</span>
+                    </a>
+                </div>
             </div>
 
-            <div class="nav-section">
-                <span class="nav-section-title">Knowledge</span>
-                <a href="#knowledge" class="nav-item" data-view="knowledge">
-                    <i class="fa-solid fa-brain"></i> <span class="nav-text">Knowledge Vault</span>
-                </a>
-                <a href="#notes" class="nav-item" data-view="notes">
-                    <i class="fa-regular fa-note-sticky"></i> <span class="nav-text">Notes</span>
-                </a>
-                <a href="#meetings" class="nav-item" data-view="meetings">
-                    <i class="fa-solid fa-users"></i> <span class="nav-text">Meetings</span>
-                </a>
+            <!-- 📊 UNDERSTAND -->
+            <div class="nav-section" data-section="understand">
+                <span class="nav-section-title collapsible-head" data-collapsible="understand" style="display:flex; justify-content:space-between; align-items:center; cursor:pointer;">
+                    <span><i class="fa-solid fa-chart-line" style="margin-right:6px; color:var(--clr-blue);"></i> Understand</span>
+                    <i class="fa-solid fa-chevron-down section-chevron" style="font-size:0.7rem; transition:transform 0.2s;"></i>
+                </span>
+                <div class="nav-section-items">
+                    <a href="#analysis" class="nav-item" data-view="analysis">
+                        <i class="fa-solid fa-heart-pulse"></i> <span class="nav-text">Financial Health</span>
+                    </a>
+                </div>
+            </div>
+
+            <!-- 💳 DEBT -->
+            <div class="nav-section" data-section="debt">
+                <span class="nav-section-title collapsible-head" data-collapsible="debt" style="display:flex; justify-content:space-between; align-items:center; cursor:pointer;">
+                    <span><i class="fa-solid fa-building-columns" style="margin-right:6px; color:var(--clr-orange);"></i> Debt</span>
+                    <i class="fa-solid fa-chevron-down section-chevron" style="font-size:0.7rem; transition:transform 0.2s;"></i>
+                </span>
+                <div class="nav-section-items">
+                    <a href="#debt" class="nav-item" data-view="debt">
+                        <i class="fa-solid fa-hand-holding-dollar"></i> <span class="nav-text">Debt & Simulator</span>
+                    </a>
+                </div>
+            </div>
+
+            <!-- 📈 WEALTH -->
+            <div class="nav-section" data-section="wealth">
+                <span class="nav-section-title collapsible-head" data-collapsible="wealth" style="display:flex; justify-content:space-between; align-items:center; cursor:pointer;">
+                    <span><i class="fa-solid fa-vault" style="margin-right:6px; color:#a855f7;"></i> Wealth</span>
+                    <i class="fa-solid fa-chevron-down section-chevron" style="font-size:0.7rem; transition:transform 0.2s;"></i>
+                </span>
+                <div class="nav-section-items">
+                    <a href="#wealth" class="nav-item" data-view="wealth">
+                        <i class="fa-solid fa-coins"></i> <span class="nav-text">Wealth & Assets</span>
+                    </a>
+                    <a href="#goals" class="nav-item" data-view="goals">
+                        <i class="fa-solid fa-bullseye"></i> <span class="nav-text">Financial Goals</span>
+                    </a>
+                </div>
+            </div>
+
+            <!-- 🤖 AI INTELLIGENCE -->
+            <div class="nav-section" data-section="ai">
+                <span class="nav-section-title collapsible-head" data-collapsible="ai" style="display:flex; justify-content:space-between; align-items:center; cursor:pointer;">
+                    <span><i class="fa-solid fa-wand-magic-sparkles" style="margin-right:6px; color:#a855f7;"></i> AI Intelligence</span>
+                    <i class="fa-solid fa-chevron-down section-chevron" style="font-size:0.7rem; transition:transform 0.2s;"></i>
+                </span>
+                <div class="nav-section-items">
+                    <a href="#ai-copilot" class="nav-item" data-view="ai-copilot">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i> <span class="nav-text">AI Financial Copilot</span>
+                    </a>
+                    <a href="#forecast" class="nav-item" data-view="forecast">
+                        <i class="fa-solid fa-chart-area"></i> <span class="nav-text">Forecast & What-If</span>
+                    </a>
+                    <a href="#reports" class="nav-item" data-view="reports">
+                        <i class="fa-solid fa-file-invoice-dollar"></i> <span class="nav-text">Financial Reports</span>
+                    </a>
+                </div>
+            </div>
+
+            <!-- 👨‍👩‍👧 FAMILY -->
+            <div class="nav-section" data-section="family">
+                <span class="nav-section-title collapsible-head" data-collapsible="family" style="display:flex; justify-content:space-between; align-items:center; cursor:pointer;">
+                    <span><i class="fa-solid fa-users" style="margin-right:6px; color:var(--clr-green);"></i> Family</span>
+                    <i class="fa-solid fa-chevron-down section-chevron" style="font-size:0.7rem; transition:transform 0.2s;"></i>
+                </span>
+                <div class="nav-section-items">
+                    <a href="#family" class="nav-item" data-view="family">
+                        <i class="fa-solid fa-users-gear"></i> <span class="nav-text">Family Finance</span>
+                    </a>
+                </div>
+            </div>
+
+            <!-- 🧠 PERSONAL UTILITIES -->
+            <div class="nav-section" data-section="personal">
+                <span class="nav-section-title collapsible-head" data-collapsible="personal" style="display:flex; justify-content:space-between; align-items:center; cursor:pointer;">
+                    <span><i class="fa-solid fa-toolbox" style="margin-right:6px; color:var(--text-muted);"></i> Personal</span>
+                    <i class="fa-solid fa-chevron-down section-chevron" style="font-size:0.7rem; transition:transform 0.2s;"></i>
+                </span>
+                <div class="nav-section-items">
+                    <a href="#dashboard" class="nav-item" data-view="dashboard">
+                        <i class="fa-solid fa-table-cells"></i> <span class="nav-text">Task Dashboard</span>
+                    </a>
+                    <a href="#tasks" class="nav-item" data-view="tasks">
+                        <i class="fa-solid fa-circle-check"></i> <span class="nav-text">Tasks</span>
+                    </a>
+                    <a href="#projects" class="nav-item" data-view="projects">
+                        <i class="fa-solid fa-folder-tree"></i> <span class="nav-text">Projects</span>
+                    </a>
+                    <a href="#notes" class="nav-item" data-view="notes">
+                        <i class="fa-regular fa-note-sticky"></i> <span class="nav-text">Notes</span>
+                    </a>
+                    <a href="#knowledge" class="nav-item" data-view="knowledge">
+                        <i class="fa-solid fa-brain"></i> <span class="nav-text">Knowledge Vault</span>
+                    </a>
+                    <a href="#calendar" class="nav-item" data-view="calendar">
+                        <i class="fa-regular fa-calendar"></i> <span class="nav-text">Calendar</span>
+                    </a>
+                    <a href="#habits" class="nav-item" data-view="habits">
+                        <i class="fa-solid fa-repeat"></i> <span class="nav-text">Habits</span>
+                    </a>
+                    <a href="#meetings" class="nav-item" data-view="meetings">
+                        <i class="fa-solid fa-video"></i> <span class="nav-text">Meetings</span>
+                    </a>
+                    <a href="#reading" class="nav-item" data-view="reading">
+                        <i class="fa-solid fa-book-open"></i> <span class="nav-text">Reading</span>
+                    </a>
+                </div>
             </div>
         </nav>
 
         <div class="sidebar-footer">
             <a href="#profile" class="nav-item" data-view="profile">
-                <i class="fa-solid fa-circle-user"></i> <span class="nav-text">Profile & Family</span>
-            </a>
-            <a href="#analytics" class="nav-item" data-view="analytics">
-                <i class="fa-solid fa-chart-line"></i> <span class="nav-text">Analytics</span>
+                <i class="fa-solid fa-circle-user"></i> <span class="nav-text">Profile</span>
             </a>
             <a href="#settings" class="nav-item" data-view="settings">
                 <i class="fa-solid fa-gear"></i> <span class="nav-text">Settings</span>
@@ -169,18 +263,27 @@
                 <button id="notifications-btn" class="icon-btn tooltip" aria-label="Notifications" data-tooltip="Alerts">
                     <i class="fa-regular fa-bell"></i>
                 </button>
-                <a href="#profile" id="topbar-user-profile-btn" style="display:flex; align-items:center; gap:10px; cursor:pointer; text-decoration:none; padding:4px 8px; border-radius:var(--radius-sm); transition:background var(--transition-fast);" title="Manage User Profile & Family Accounts">
+                <a href="#profile" id="topbar-user-profile-btn" title="Manage User Profile & Family Accounts">
                     <span class="user-display-name" style="font-weight: 600; font-size: 0.9rem; color: var(--text-primary);"></span>
                     <div class="user-avatar">OS</div>
                 </a>
             </div>
         </header>
 
+        <!-- Contextual Breadcrumbs Bar -->
+        <div id="app-breadcrumbs" class="app-breadcrumbs" style="padding: 10px 24px; border-bottom: 1px solid var(--border-light); background: var(--bg-card); display: flex; align-items: center; gap: 8px; font-size: 0.8rem; color: var(--text-muted);">
+            <span class="bc-home" style="display:flex; align-items:center; gap:6px; color:var(--text-primary); font-weight:600;"><i class="fa-solid fa-vault" style="color:var(--accent-color);"></i> FinanceOS</span>
+            <i class="fa-solid fa-chevron-right" style="font-size:0.65rem;"></i>
+            <span id="bc-category" style="color:var(--text-secondary);">Home</span>
+            <i class="fa-solid fa-chevron-right" style="font-size:0.65rem;"></i>
+            <span id="bc-current" style="color:var(--accent-color); font-weight:600;">Overview</span>
+        </div>
+
         <!-- VIEWS CONTAINER -->
         <div id="views-container" class="views-container">
             
             <!-- Dashboard View -->
-            <section id="view-dashboard" class="view active">
+            <section id="view-dashboard" class="view">
                 <div class="view-header">
                     <div>
                         <h1 id="greeting">Good morning.</h1>
@@ -347,12 +450,21 @@
                 <div id="family-view-container"></div>
             </section>
 
-            <!-- Placeholders for remaining views -->
+            <!-- Primary Financial Intelligence Views -->
+            <section id="view-finance" class="view active"><div id="finance-view-container"></div></section>
+            <section id="view-money" class="view"><div id="money-view-container"></div></section>
+            <section id="view-analysis" class="view"><div id="analysis-view-container"></div></section>
+            <section id="view-debt" class="view"><div id="debt-view-container"></div></section>
+            <section id="view-wealth" class="view"><div id="wealth-view-container"></div></section>
+            <section id="view-goals" class="view"><div id="goals-view-container"></div></section>
+            <section id="view-forecast" class="view"><div id="forecast-view-container"></div></section>
+            <section id="view-ai-copilot" class="view"><div id="ai-copilot-view-container"></div></section>
+            <section id="view-reports" class="view"><div id="reports-view-container"></div></section>
+
+            <!-- Supporting Productivity Views -->
             <section id="view-projects" class="view"><div class="view-header"><h1>Projects</h1></div><div class="card"><div class="card-body">Project Architecture Interface Loading...</div></div></section>
-            <section id="view-goals" class="view"><div class="view-header"><h1>Goals (OKRs)</h1></div><div class="card"><div class="card-body">Goals Interface Loading...</div></div></section>
             <section id="view-calendar" class="view"><div class="view-header"><h1>Calendar</h1></div><div class="card"><div class="card-body">Vanilla JS Calendar Engine Loading...</div></div></section>
             <section id="view-habits" class="view"><div class="view-header"><h1>Habit Tracker</h1></div><div class="card"><div class="card-body">Habit Heatmaps Loading...</div></div></section>
-            <section id="view-finance" class="view"><div class="view-header"><h1>Finance</h1></div><div class="card"><div class="card-body">Finance Ledger Loading...</div></div></section>
             <section id="view-reading" class="view"><div class="view-header"><h1>Reading Tracker</h1></div><div class="card"><div class="card-body">Library Interface Loading...</div></div></section>
             <section id="view-knowledge" class="view"><div class="view-header"><h1>Knowledge Vault</h1></div><div class="card"><div class="card-body">Second Brain PARA Structure Loading...</div></div></section>
             <section id="view-notes" class="view"><div class="view-header"><h1>Notes</h1></div><div class="card"><div class="card-body">Rich Text Editor Loading...</div></div></section>
@@ -364,11 +476,35 @@
     <!-- Global UI Elements -->
     <div id="toast-container" class="toast-container"></div>
 
+    <!-- Mobile Bottom Navigation Bar -->
+    <nav class="mobile-bottom-nav mobile-only">
+        <a href="#finance" class="mobile-nav-item active" data-view="finance">
+            <i class="fa-solid fa-house"></i>
+            <span>Home</span>
+        </a>
+        <a href="#money" class="mobile-nav-item" data-view="money">
+            <i class="fa-solid fa-wallet"></i>
+            <span>Money</span>
+        </a>
+        <a href="#ai-copilot" class="mobile-nav-item ai-nav" data-view="ai-copilot">
+            <i class="fa-solid fa-wand-magic-sparkles"></i>
+            <span>Ask AI</span>
+        </a>
+        <a href="#goals" class="mobile-nav-item" data-view="goals">
+            <i class="fa-solid fa-bullseye"></i>
+            <span>Goals</span>
+        </a>
+        <button id="mobile-more-btn" class="mobile-nav-item">
+            <i class="fa-solid fa-bars"></i>
+            <span>More</span>
+        </button>
+    </nav>
+
     <!-- External Libraries (CDNs as permitted) -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
 
     <!-- Application Logic (ES Modules) -->
-    <script type="module" src="js/main.js"></script>
+    <script type="module" src="js/main.js?v=2"></script>
 </body>
 </html>

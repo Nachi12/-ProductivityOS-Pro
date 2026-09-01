@@ -22,8 +22,8 @@ export class TaskManager {
         style.id = 'task-modal-styles';
         style.textContent = `
             .task-modal-overlay {
-                position: fixed; inset: 0; background: rgba(0,0,0,0.45);
-                backdrop-filter: blur(4px); z-index: 1000;
+                position: fixed; inset: 0; background: rgba(0,0,0,0.65);
+                backdrop-filter: blur(8px); z-index: 20000;
                 display: flex; align-items: center; justify-content: center;
                 animation: taskModalFadeIn 0.2s ease;
                 opacity: 1; transition: opacity 0.2s ease;

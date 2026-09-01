@@ -23,9 +23,9 @@ export class Router {
             return;
         }
 
-        const rawHash = window.location.hash.replace('#', '') || 'dashboard';
+        const rawHash = window.location.hash.replace('#', '') || 'finance';
         const baseView = rawHash.split('?')[0];
-        this.navigateTo(baseView || 'dashboard');
+        this.navigateTo(baseView || 'finance');
     }
 
     bindEvents() {
@@ -41,9 +41,9 @@ export class Router {
         });
 
         window.addEventListener('hashchange', () => {
-            const rawHash = window.location.hash.replace('#', '') || 'dashboard';
+            const rawHash = window.location.hash.replace('#', '') || 'finance';
             const baseView = rawHash.split('?')[0];
-            this.navigateTo(baseView || 'dashboard');
+            this.navigateTo(baseView || 'finance');
         });
     }
 
@@ -60,8 +60,8 @@ export class Router {
         if (targetView) {
             targetView.classList.add('active');
         } else {
-            const dashView = document.getElementById('view-dashboard');
-            if (dashView) dashView.classList.add('active');
+            const finView = document.getElementById('view-finance');
+            if (finView) finView.classList.add('active');
         }
 
         targetNavs.forEach(n => n.classList.add('active'));
@@ -72,6 +72,46 @@ export class Router {
                 window.history.pushState(null, '', `#${viewId}`);
             } catch (e) {
                 window.location.hash = viewId;
+            }
+        }
+
+        // Update breadcrumb bar
+        const routeMap = {
+            finance: { cat: 'Home', name: 'Overview' },
+            money: { cat: 'Money', name: 'Transactions & Ledger' },
+            analysis: { cat: 'Understand', name: 'Financial Health' },
+            debt: { cat: 'Debt', name: 'Debt & Simulator' },
+            wealth: { cat: 'Wealth', name: 'Wealth & Assets' },
+            goals: { cat: 'Wealth', name: 'Financial Goals' },
+            forecast: { cat: 'AI Intelligence', name: 'Forecast & What-If' },
+            'ai-copilot': { cat: 'AI Intelligence', name: 'AI Financial Copilot' },
+            reports: { cat: 'AI Intelligence', name: 'Financial Reports' },
+            family: { cat: 'Family', name: 'Family Finance' },
+            dashboard: { cat: 'Personal', name: 'Task Dashboard' },
+            tasks: { cat: 'Personal', name: 'Tasks' },
+            projects: { cat: 'Personal', name: 'Projects' },
+            notes: { cat: 'Personal', name: 'Notes' },
+            knowledge: { cat: 'Personal', name: 'Knowledge Vault' },
+            calendar: { cat: 'Personal', name: 'Calendar' },
+            habits: { cat: 'Personal', name: 'Habits' },
+            meetings: { cat: 'Personal', name: 'Meetings' },
+            reading: { cat: 'Personal', name: 'Reading' },
+            profile: { cat: 'System', name: 'Profile' },
+            settings: { cat: 'System', name: 'Settings' }
+        };
+
+        const info = routeMap[viewId] || { cat: 'System', name: viewId };
+        const bcCat = document.getElementById('bc-category');
+        const bcCur = document.getElementById('bc-current');
+        if (bcCat) bcCat.textContent = info.cat;
+        if (bcCur) bcCur.textContent = info.name;
+
+        // Auto-expand section containing active view
+        const activeNavItem = document.querySelector(`.nav-item[data-view="${viewId}"]`);
+        if (activeNavItem) {
+            const section = activeNavItem.closest('.nav-section');
+            if (section && section.classList.contains('section-collapsed')) {
+                section.classList.remove('section-collapsed');
             }
         }
 

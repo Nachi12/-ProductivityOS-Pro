@@ -17,6 +17,8 @@ export function it(name: string, fn: () => void) {
 
 export const expect = (actual: any) => ({
   toBe: (expected: any) => assert.strictEqual(actual, expected),
+  toBeDefined: () => assert.ok(actual !== undefined && actual !== null, `Expected value to be defined`),
+  toContain: (expected: string) => assert.ok(String(actual).includes(expected), `Expected ${actual} to contain ${expected}`),
   toBeGreaterThan: (expected: number) => assert.ok(actual > expected, `Expected ${actual} > ${expected}`),
   toBeLessThan: (expected: number) => assert.ok(actual < expected, `Expected ${actual} < ${expected}`),
   toHaveLength: (expected: number) => assert.strictEqual(actual.length, expected),

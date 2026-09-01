@@ -10,5 +10,9 @@ dist/
 *.log
 npm-debug.log*
 
-# System files
+# System & OS metadata files
 .DS_Store
+._*
+.Spotlight-V100
+.Trashes
+

@@ -1,17 +1,34 @@
-# ProductivityOS Pro — Enterprise MERN Personal Finance SaaS
+# FinanceOS Pro — AI Financial Intelligence & Wealth Operating System
 
-> A production-ready, multi-user personal finance and bank statement analysis platform built with TypeScript, Node.js, Express, MongoDB, and React/ES Modules. Features integer minor unit (paise) money handling, idempotent statement parsing, SHA-256 duplicate transaction prevention, and layered architecture.
+> A production-grade AI-Powered Personal Finance Platform & Wealth Operating System built with TypeScript, Node.js, Express, MongoDB, and ES Modules. Features server-side LLM provider abstraction (Google Gemini, OpenAI, Anthropic, DemoAIProvider), structured context engineering, prompt injection defense, 1-click Financial Diagnosis across 7 Life Stages, ₹1 Crore Wealth Path compounding calculator, and deterministic arithmetic calculation separation.
 
 ---
 
-## Technical Highlights & Architecture
+## 🚀 Key AI Architecture & Technical Highlights
 
-- **Layered Backend Architecture**: Clean separation into `Routes` → `Controllers` → `Services` → `Mongoose Models`.
-- **Exact Monetary Calculation**: Stores all monetary values internally as integer minor units (`paise`) to prevent floating-point representation & rounding drift. Formatted using the **Indian Numbering System** (`₹10,00,000.00`).
-- **Idempotent Bank Statement Pipeline**: Extensible strategy parser engine (CSV/PDF) that generates SHA-256 transaction fingerprints (`sha256(userId + date + amount + description + refNo)`), detects duplicate uploads, supports batch importing, and implements safe cascade statement deletion.
-- **Multi-User Data Isolation & Anti-IDOR Protection**: Strict session/token authentication enforcement on every REST API endpoint guaranteeing zero cross-tenant data leaks.
-- **Security & Reliability**: Helmet HTTP security headers, CORS protection, rate limiting (`express-rate-limit`), Zod schema request validation, and centralized error handling.
-- **Comprehensive Automated Testing**: Full test suite built withVitest/Jest covering money utilities, loan EMI calculations, statement parsing, and fingerprint generation.
+### 1. Server-Side AI Provider Abstraction (`AIProvider`)
+- Implemented `AIProvider` unified interface (`completion`, `structuredOutput`) in `src/services/ai/aiProvider.ts`.
+- Supports switching between **Google Gemini 1.5 Flash REST API**, **OpenAI Chat Completions (`gpt-4o-mini`)**, and built-in **`DemoAIProvider`**.
+- **Zero API Keys in Frontend**: All LLM API calls execute strictly server-side.
+
+### 2. Financial Context Engine (`FinancialContextService`)
+- Constructs normalized, summarized JSON context payloads (`summary`, `healthScore`, `topExpenses`, `loans`, `assets`, `netWorth`, `recentChanges`) to guarantee 100% data precision while minimizing token costs.
+
+### 3. Deterministic Arithmetic + AI Interpretation Separation
+- Core financial calculations (Savings Rate, Net Worth, EMI, Debt Payoff timelines, Health Score, ₹1 Crore compounding) are 100% computed programmatically by TypeScript services. AI interprets, diagnoses, prioritizes, and generates actionable advice without hallucinating arithmetic.
+
+### 4. 1-Click Financial Diagnosis & 7 Financial Life Stages
+- `AIDiagnosisService` classifies user status into:
+  1. **Stage 1**: Financial Recovery (Negative cash flow / high DTI)
+  2. **Stage 2**: Financial Stability (Basic surplus, building cash buffer)
+  3. **Stage 3**: Financial Foundation (15%+ savings rate & emergency reserves)
+  4. **Stage 4**: Wealth Building (Surplus cash flow & systematic capital growth)
+  5. **Stage 5**: Accelerated Wealth Building (High financial efficiency)
+  6. **Stage 6**: Financial Independence (Passive returns cover living expenses)
+  7. **Stage 7**: High Net Worth Management (Estate planning & capital preservation)
+
+### 5. Prompt Injection Defense & AI Security
+- Sanitizes user input and bank statement transaction descriptions. Wraps financial data in system context delimiters (`<user_financial_data>`) to prevent uploaded text from overriding system instructions.
 
 ---
 
@@ -22,60 +39,56 @@
 | **Language** | TypeScript (ES2022) / JavaScript |
 | **Backend Framework** | Node.js, Express.js |
 | **Database & ORM** | MongoDB, Mongoose |
+| **AI Providers** | Google Gemini 1.5 Flash, OpenAI (`gpt-4o-mini`), DemoAIProvider |
 | **Security & Auth** | JWT, Bcrypt, Helmet, Express Rate Limit, Firebase Admin |
 | **Validation** | Zod Schema Validator |
-| **Testing** | Vitest / Jest / Tsx Automated Suite |
-| **Documentation & CI/CD** | OpenAPI 3.0, GitHub Actions Workflow |
+| **Testing** | Vitest / Tsx Automated Test Runner |
 
 ---
 
-## System Architecture
+## AI System Architecture
 
 ```
-[ Frontend Client ] ──(REST / HTTPS)──> [ Express REST API v1 ]
-                                                  │
-             ┌────────────────────────────────────┴────────────────────────────────────┐
-             ▼                                    ▼                                    ▼
-    [ Auth Middleware ]                 [ Controllers Layer ]               [ Security & Headers ]
-    (JWT / Token Check)                 (Auth, Transaction,                 (Helmet / RateLimit)
-                                         Statement, Analytics)
-                                                  │
-                                                  ▼
-                                         [ Services Layer ]
-                                         (Finance, Statement,
-                                          Parsers Strategy)
-                                                  │
-                                                  ▼
-                                      [ MongoDB Domain Models ]
-                                      (User, Transaction, Loan,
-                                       BankStatement, ImportBatch)
+[ FRONTEND CLIENT ] ──(REST / HTTPS)──> [ EXPRESS REST API v1 ]
+                                                    │
+               ┌────────────────────────────────────┴────────────────────────────────────┐
+               ▼                                    ▼                                    ▼
+      [ Auth Middleware ]                 [ AI Controllers ]                   [ Security & Headers ]
+      (JWT / X-User-UID)                  (Copilot, Diagnosis,                 (Helmet / RateLimit)
+                                           WealthPath, Command)
+                                                    │
+                                                    ▼
+                                      [ Financial Context Engine ]
+                                      (Summarized Context Payload)
+                                                    │
+                                                    ▼
+                                      [ Server-Side AI Provider ]
+                                  (Gemini, OpenAI, DemoAIProvider)
 ```
 
 ---
 
 ## REST API Specification
 
-Detailed OpenAPI 3.0 specification available in [`docs/openapi.json`](docs/openapi.json).
-
 | Method | Endpoint | Description | Auth Required |
 | :--- | :--- | :--- | :--- |
 | `GET` | `/api/v1/health` | Service health check | No |
 | `POST` | `/api/v1/auth/register` | Register user account | No (Rate limited) |
 | `POST` | `/api/v1/auth/login` | Authenticate user & issue JWT | No (Rate limited) |
-| `GET` | `/api/v1/transactions` | List paginated transactions (filter, search) | Yes |
+| `GET` | `/api/v1/transactions` | List paginated transactions | Yes |
 | `POST` | `/api/v1/transactions` | Create manual income/expense entry | Yes |
 | `POST` | `/api/v1/statements/upload` | Upload & parse bank statement | Yes |
-| `POST` | `/api/v1/statements/:id/import` | Import confirmed statement transactions | Yes |
-| `DELETE` | `/api/v1/statements/:id` | Cascade delete statement & batch transactions | Yes |
-| `GET` | `/api/v1/analytics/summary` | Get financial summary (Net cash flow, EMI, savings rate) | Yes |
+| `GET` | `/api/v1/analytics/summary` | Financial summary & Health Score (0-100) | Yes |
+| `POST` | `/api/v1/ai/copilot` | Natural language Financial Copilot Q&A | Yes |
+| `POST` | `/api/v1/ai/diagnosis` | 1-Click Financial Diagnosis & 7 Life Stages | Yes |
+| `POST` | `/api/v1/ai/wealth-path` | ₹1 Crore Wealth Path Calculator & AI Path | Yes |
+| `POST` | `/api/v1/ai/command` | Natural language intent parser & filter | Yes |
+| `GET` | `/api/v1/ai/insights` | Priority insights matrix (`CRITICAL`, `HIGH`, `MEDIUM`, `LOW`) | Yes |
+| `GET` | `/api/v1/ai/action-plan` | Personalized 7/30/90-day financial action checklist | Yes |
 
 ---
 
-## Local Installation & Setup Guide
-
-### Prerequisites
-- **Node.js**: v20+
-- **MongoDB**: Local instance running on `mongodb://127.0.0.1:27017` or MongoDB Atlas URI
+## Setup & Configuration Guide
 
 ### 1. Clone & Install Dependencies
 ```bash
@@ -90,24 +103,34 @@ Copy `.env.example` to `.env`:
 cp .env.example .env
 ```
 
-### 3. Run Automated Tests
-```bash
-npm test
+To configure Google Gemini (Free API Key):
+```env
+AI_PROVIDER=gemini
+GEMINI_API_KEY=your_google_gemini_api_key_here
 ```
 
-### 4. Build TypeScript Server
-```bash
-npm run build
+To configure OpenAI:
+```env
+AI_PROVIDER=openai
+OPENAI_API_KEY=your_openai_api_key_here
 ```
 
-### 5. Start Development Server
+*(If no key is configured, the server automatically defaults to `DemoAIProvider` server-side).*
+
+### 3. Run Automated Test Suite
 ```bash
-npm start
+npx tsx tests/runner.ts
 ```
-The server will run on **`http://localhost:3000`**.
+
+### 4. Build & Start Application
+```bash
+npx tsc
+node server.js
+```
+The server will run live on **`http://localhost:3000`**.
 
 ---
 
 ## License
 
-ISC License. Built as an engineering project demonstrating Full Stack MERN development.
+ISC License. Built as an enterprise portfolio AI Financial Intelligence Platform.

@@ -1,17 +1,17 @@
-/* ========== RESPONSIVE DESIGN ========== */
+/* ========== RESPONSIVE DESIGN & OVERLAP PREVENTION SYSTEM ========== */
 
 /* ---------- Variables override for mobile ---------- */
 :root {
-    --sidebar-mobile-width: 260px;
+    --sidebar-mobile-width: 280px;
 }
 
 /* ========== TABLET (max-width: 1024px) ========== */
 @media (max-width: 1024px) {
-    .dashboard-grid { grid-template-columns: 1fr 1fr; }
+    .dashboard-grid { grid-template-columns: 1fr 1fr; gap: var(--spacing-4); }
     .span-3 { grid-column: span 2; }
     .views-container { padding: var(--spacing-4); }
     .topbar { padding: 0 var(--spacing-4); }
-    .topbar-search { width: 240px; }
+    .topbar-search { width: 220px; }
     .view-header h1 { font-size: 1.6rem; }
 
     /* Module grids */
@@ -25,10 +25,44 @@
 
     /* Knowledge vault */
     .kv-layout { grid-template-columns: 180px 1fr; }
+
+    /* Financial grids */
+    .fin-kpi-grid { grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    .fin-panels-grid { grid-template-columns: 1fr; gap: var(--spacing-4); }
 }
 
-/* ========== MOBILE/TABLET (max-width: 768px) ========== */
+/* ========== MOBILE / PORTRAIT TABLET (max-width: 768px) ========== */
 @media (max-width: 768px) {
+    /* Safe Area & Layout Container */
+    body {
+        overflow-x: hidden !important;
+        position: relative !important;
+        width: 100% !important;
+    }
+
+    .main-content {
+        width: 100% !important;
+        min-width: 0 !important;
+        height: 100dvh !important;
+        overflow-x: hidden !important;
+    }
+
+    /* Views Container - Critical bottom safety clearance for Mobile Bottom Nav */
+    .views-container {
+        padding: 12px 14px calc(76px + env(safe-area-inset-bottom, 16px)) 14px !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+        overflow-x: hidden !important;
+    }
+
+    .view {
+        width: 100% !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+        overflow-x: hidden !important;
+    }
+
     /* Sidebar: off-screen slide-out drawer */
     .sidebar {
         position: fixed !important;
@@ -36,7 +70,7 @@
         top: 0 !important;
         bottom: 0 !important;
         width: 280px !important;
-        max-width: 82vw !important;
+        max-width: 84vw !important;
         height: 100dvh !important;
         transform: translateX(-100%) !important;
         transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
@@ -86,8 +120,8 @@
         display: flex !important;
         align-items: center;
         justify-content: center;
-        width: 36px;
-        height: 36px;
+        width: 38px;
+        height: 38px;
         background: var(--bg-hover);
         border: 1px solid var(--border-color);
         border-radius: var(--radius-sm);
@@ -102,19 +136,13 @@
         display: flex !important;
         align-items: center;
         justify-content: center;
-        width: 32px;
-        height: 32px;
+        width: 34px;
+        height: 34px;
         background: var(--bg-input);
         border: 1px solid var(--border-color);
         border-radius: var(--radius-sm);
         color: var(--text-muted);
         cursor: pointer;
-    }
-
-    /* Main content full width */
-    .main-content {
-        width: 100% !important;
-        min-width: 0 !important;
     }
 
     /* Overlay backdrop when sidebar is open */
@@ -125,7 +153,7 @@
         background: rgba(0, 0, 0, 0.65);
         backdrop-filter: blur(4px);
         -webkit-backdrop-filter: blur(4px);
-        z-index: 10001;
+        z-index: 10000;
         opacity: 0;
         pointer-events: none;
         transition: opacity 0.3s ease;
@@ -135,26 +163,78 @@
         pointer-events: all;
     }
 
-    /* Top bar */
-    .topbar { padding: 0 var(--spacing-3); gap: var(--spacing-2); }
-    .topbar-search { width: 100%; max-width: 200px; }
-    .topbar-actions { gap: var(--spacing-2); }
-    .user-avatar { width: 32px; height: 32px; font-size: 0.8rem; }
+    /* Mobile Bottom Navigation Bar */
+    .mobile-bottom-nav {
+        position: fixed !important;
+        bottom: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        height: 60px !important;
+        padding-bottom: env(safe-area-inset-bottom, 0px) !important;
+        background: var(--bg-card) !important;
+        border-top: 1px solid var(--border-color) !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: space-around !important;
+        z-index: 9990 !important;
+        backdrop-filter: blur(16px) !important;
+        -webkit-backdrop-filter: blur(16px) !important;
+        box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.25) !important;
+    }
+    .mobile-nav-item {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        justify-content: center !important;
+        gap: 3px !important;
+        color: var(--text-muted) !important;
+        text-decoration: none !important;
+        font-size: 0.72rem !important;
+        font-weight: 500 !important;
+        background: none !important;
+        border: none !important;
+        padding: 6px 12px !important;
+        cursor: pointer !important;
+        flex: 1 !important;
+        max-width: 72px !important;
+    }
+    .mobile-nav-item i { font-size: 1.15rem !important; }
+    .mobile-nav-item.active { color: var(--accent-color) !important; font-weight: 600 !important; }
+    .mobile-nav-item.ai-nav { color: #a855f7 !important; }
 
-    /* Views & Dashboard Mobile */
-    .views-container {
-        padding: 12px 14px !important;
-        width: 100% !important;
-        max-width: 100% !important;
-        box-sizing: border-box !important;
-        overflow-x: hidden !important;
+    /* Top bar */
+    .topbar {
+        height: 56px !important;
+        padding: 0 12px !important;
+        gap: 8px !important;
+        justify-content: space-between !important;
     }
-    .view {
+    .topbar-search {
         width: 100% !important;
-        max-width: 100% !important;
-        box-sizing: border-box !important;
-        overflow-x: hidden !important;
+        max-width: 180px !important;
+        padding: 6px 10px !important;
     }
+    .topbar-actions {
+        gap: 6px !important;
+    }
+    .user-avatar {
+        width: 32px !important;
+        height: 32px !important;
+        font-size: 0.8rem !important;
+    }
+
+    /* Contextual Breadcrumbs */
+    .app-breadcrumbs {
+        padding: 8px 14px !important;
+        font-size: 0.75rem !important;
+        overflow-x: auto !important;
+        white-space: nowrap !important;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+    }
+    .app-breadcrumbs::-webkit-scrollbar { display: none; }
+
+    /* View Header & Action Buttons */
     .view-header {
         flex-direction: column !important;
         align-items: stretch !important;
@@ -311,167 +391,426 @@
         grid-column: span 2 !important;
     }
 
-    /* Tables */
-    .table-responsive { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-    .data-table { min-width: 500px; }
+    /* Tables & Horizontal Scroll Container */
+    .table-responsive,
+    .bsa-table-wrap {
+        width: 100% !important;
+        max-width: 100% !important;
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+        scrollbar-width: thin !important;
+        border-radius: var(--radius-md) !important;
+    }
+    .data-table,
+    .bsa-table {
+        min-width: 540px !important;
+    }
 
-    /* Filters bar */
-    .filters-bar { flex-wrap: wrap; gap: var(--spacing-2); padding: var(--spacing-2) var(--spacing-3); }
-    .filters-bar .input-light { min-width: 120px; flex: 1; }
+    /* Filters Bar */
+    .filters-bar {
+        flex-wrap: wrap !important;
+        gap: 8px !important;
+        padding: 10px 12px !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+    }
+    .filters-bar .input-light {
+        min-width: 120px !important;
+        flex: 1 1 auto !important;
+    }
+
+    /* Financial Layouts & Sidebar */
+    .fin-container, .fin-layout {
+        grid-template-columns: 1fr !important;
+        gap: var(--spacing-3) !important;
+        width: 100% !important;
+    }
+    .fin-sidebar {
+        display: flex !important;
+        flex-direction: row !important;
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch;
+        padding: 10px 12px !important;
+        gap: 8px !important;
+        align-items: center !important;
+        white-space: nowrap !important;
+        width: 100% !important;
+        scrollbar-width: none !important;
+        box-sizing: border-box !important;
+    }
+    .fin-sidebar::-webkit-scrollbar { display: none; }
+    .fin-sidebar h3 { display: none !important; }
+    .fin-person-item {
+        display: inline-flex !important;
+        flex-shrink: 0 !important;
+        align-items: center !important;
+        margin-bottom: 0 !important;
+        background: var(--bg-hover) !important;
+        border-radius: var(--radius-md) !important;
+    }
+    .fin-person-btn {
+        width: auto !important;
+        margin-bottom: 0 !important;
+        white-space: nowrap !important;
+        padding: 8px 12px !important;
+        flex-shrink: 0 !important;
+        font-size: 0.84rem !important;
+    }
+    .fin-sidebar > div:last-child {
+        border-top: none !important;
+        border-left: 1px solid var(--border-color) !important;
+        margin-top: 0 !important;
+        padding-top: 0 !important;
+        padding-left: 8px !important;
+        flex-shrink: 0 !important;
+    }
+    .fin-panels-grid {
+        grid-template-columns: 1fr !important;
+        gap: var(--spacing-3) !important;
+        width: 100% !important;
+    }
+
+    /* Financial KPI Grids */
+    .fin-kpi-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 8px !important;
+        width: 100% !important;
+    }
+    .fin-kpi {
+        padding: 12px 14px !important;
+        gap: 6px !important;
+    }
+    .fin-kpi-header h4 {
+        font-size: 0.68rem !important;
+    }
+    .fin-kpi-icon {
+        width: 30px !important;
+        height: 30px !important;
+        font-size: 0.85rem !important;
+    }
+    .fin-kpi-data .value {
+        font-size: 1.15rem !important;
+    }
+
+    .an-summary-grid, .bsa-summary-bar {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 8px !important;
+        width: 100% !important;
+    }
+    .an-grid-2, .an-grid-3 {
+        grid-template-columns: 1fr !important;
+        gap: 12px !important;
+        width: 100% !important;
+    }
+
+    /* Section Header & Segment Pill Toggles */
+    .fin-section-header {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 10px !important;
+        width: 100% !important;
+    }
+    .fin-type-toggle, .an-pill-toggle {
+        display: flex !important;
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        flex-wrap: nowrap !important;
+        scrollbar-width: none !important;
+        box-sizing: border-box !important;
+        padding: 4px !important;
+        gap: 4px !important;
+    }
+    .fin-type-toggle::-webkit-scrollbar,
+    .an-pill-toggle::-webkit-scrollbar { display: none; }
+    .fin-type-btn, .an-pill-btn {
+        flex-shrink: 0 !important;
+        flex: 1 0 auto !important;
+        padding: 8px 12px !important;
+        font-size: 0.78rem !important;
+        text-align: center !important;
+        white-space: nowrap !important;
+    }
+
+    /* Loans & Forms on Mobile */
+    .loan-header {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 8px !important;
+    }
+    .loan-stats {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 8px !important;
+    }
+    .fin-form-row {
+        grid-template-columns: 1fr !important;
+        gap: 10px !important;
+        width: 100% !important;
+    }
+
+    /* Controls bar flex column */
+    .an-controls-bar, .bsa-toolbar {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 12px !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+    }
+    .an-controls-group {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 8px !important;
+        width: 100% !important;
+    }
+
+    /* Toast Notifications - Floating Safely Above Mobile Bottom Bar */
+    .toast-container {
+        position: fixed !important;
+        bottom: calc(72px + env(safe-area-inset-bottom, 0px)) !important;
+        right: 12px !important;
+        left: 12px !important;
+        z-index: 10010 !important;
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 8px !important;
+        pointer-events: none !important;
+    }
+    .toast {
+        min-width: 0 !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+        padding: 12px 14px !important;
+        font-size: 0.85rem !important;
+        pointer-events: auto !important;
+    }
+
+    /* Modal Overlay & Dialog Responsiveness */
+    .gm-overlay,
+    .task-modal-overlay {
+        z-index: 20000 !important;
+        padding: 12px !important;
+        align-items: center !important;
+        justify-content: center !important;
+        box-sizing: border-box !important;
+    }
+    .gm-dialog,
+    .task-modal {
+        width: 100% !important;
+        max-width: min(540px, calc(100vw - 20px)) !important;
+        max-height: calc(100dvh - 32px) !important;
+        margin: auto !important;
+        box-sizing: border-box !important;
+        border-radius: var(--radius-lg) !important;
+    }
+    .gm-header,
+    .task-modal-header {
+        padding: 14px 16px !important;
+    }
+    .gm-body,
+    .task-modal-body {
+        padding: 14px 16px !important;
+        gap: 12px !important;
+    }
+    .gm-footer,
+    .task-modal-footer {
+        padding: 12px 16px !important;
+        flex-wrap: wrap !important;
+        gap: 8px !important;
+    }
+    .gm-row,
+    .gm-row-3,
+    .task-form-row {
+        grid-template-columns: 1fr !important;
+        gap: 10px !important;
+    }
+    .gm-footer .btn,
+    .task-modal-footer .btn {
+        flex: 1 1 auto !important;
+        min-width: 100px !important;
+        justify-content: center !important;
+    }
+
+    /* Notifications Panel & Profile Dropdown on Mobile */
+    #notifications-panel {
+        top: 56px !important;
+        right: 8px !important;
+        width: calc(100vw - 16px) !important;
+        max-width: 360px !important;
+        z-index: 10005 !important;
+    }
+    #topbar-profile-dropdown {
+        top: 56px !important;
+        right: 8px !important;
+        width: calc(100vw - 16px) !important;
+        max-width: 280px !important;
+        z-index: 10005 !important;
+    }
 
     /* Module-specific grids */
     .proj-grid,
     .goals-grid,
     .meet-grid,
     .analytics-grid,
-    .kv-items-grid { grid-template-columns: 1fr; }
+    .kv-items-grid {
+        grid-template-columns: 1fr !important;
+        gap: 12px !important;
+    }
 
-    /* KPI grids */
+    /* KPI Grids */
     .proj-kpi-grid,
     .goals-kpi-grid,
     .meet-kpi-grid,
-    .analytics-kpi-grid { grid-template-columns: 1fr 1fr; }
+    .analytics-kpi-grid {
+        grid-template-columns: 1fr 1fr !important;
+        gap: 8px !important;
+    }
 
-    /* Knowledge vault */
-    .kv-layout { grid-template-columns: 1fr; }
-    .kv-layout > .card:first-child { display: none; } /* hide sidebar on mobile, filter via search */
+    /* Tasks Kanban Board Horizontal Touch Scroll */
+    .kanban-board {
+        display: flex !important;
+        flex-direction: row !important;
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+        gap: 12px !important;
+        padding-bottom: 12px !important;
+    }
+    .kanban-col {
+        min-width: 260px !important;
+        flex-shrink: 0 !important;
+    }
+
+    /* Knowledge Vault */
+    .kv-layout { grid-template-columns: 1fr !important; }
+    .kv-layout > .card:first-child { display: none; }
 
     /* Notes */
     .notes-layout {
-        grid-template-columns: 1fr;
-        height: auto;
-        min-height: auto;
+        grid-template-columns: 1fr !important;
+        height: auto !important;
+        min-height: auto !important;
     }
-    .notes-list-panel { max-height: 200px; overflow-y: auto; }
-    .notes-editor-panel { min-height: 350px; }
+    .notes-list-panel { max-height: 200px !important; overflow-y: auto !important; }
+    .notes-editor-panel { min-height: 320px !important; }
 
-    /* Goals ring */
-    .goal-progress-ring { width: 48px; height: 48px; }
-    .goal-progress-ring svg { width: 48px; height: 48px; }
-    .goal-pct-label { font-size: 0.65rem; }
+    /* Habits Heatmap Horizontal Scroll */
+    .habits-grid { grid-template-columns: 1fr !important; }
+    .hab-heatmap-wrap {
+        width: 100% !important;
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+    }
+    .hab-heatmap-grid { gap: 3px !important; }
 
-    /* Calendar grid */
-    .cal-grid { gap: 2px; }
-    .cal-cell { min-height: 50px; padding: 4px; font-size: 0.75rem; }
-    .cal-day-header { font-size: 0.7rem; padding: 6px 0; }
-
-    /* Habits */
-    .habits-grid { grid-template-columns: 1fr; }
-    .hab-heatmap-grid { gap: 3px; }
-
-    /* Finance inline form row */
-    .fin-form-row { flex-wrap: wrap; }
-    .fin-form-row .fin-field { min-width: 140px; flex: 1; }
+    /* Calendar Grid */
+    .cal-grid { gap: 2px !important; }
+    .cal-cell { min-height: 50px !important; padding: 4px !important; font-size: 0.75rem !important; }
+    .cal-day-header { font-size: 0.7rem !important; padding: 6px 0 !important; }
 
     /* Reading */
-    .reading-grid { grid-template-columns: 1fr; }
-    .book-progress-bar { height: 6px; }
+    .reading-grid { grid-template-columns: 1fr !important; }
+    .book-progress-bar { height: 6px !important; }
 
     /* Meetings */
-    .meet-filters { gap: var(--spacing-1); }
-    .meet-filter-btn { padding: 6px 12px; font-size: 0.8rem; }
-    .meet-actions { flex-wrap: wrap; }
+    .meet-filters { gap: var(--spacing-1) !important; flex-wrap: wrap !important; }
+    .meet-filter-btn { padding: 6px 12px !important; font-size: 0.8rem !important; }
+    .meet-actions { flex-wrap: wrap !important; }
 
-    /* Analytics */
-    .an-donut { flex-direction: column; align-items: center; }
-    .an-bar-label { width: 70px; font-size: 0.75rem; }
-
-    /* Finance layout & Mobile Optimizations */
-    .fin-container, .fin-layout { grid-template-columns: 1fr !important; gap: var(--spacing-3) !important; width: 100% !important; }
-    .fin-sidebar { display: flex !important; flex-direction: row !important; overflow-x: auto !important; -webkit-overflow-scrolling: touch; padding: 10px 14px !important; gap: 8px !important; align-items: center !important; white-space: nowrap !important; width: 100% !important; scrollbar-width: none; box-sizing: border-box !important; }
-    .fin-sidebar::-webkit-scrollbar { display: none; }
-    .fin-sidebar h3 { display: none !important; }
-    .fin-person-item { display: inline-flex !important; flex-shrink: 0 !important; align-items: center !important; margin-bottom: 0 !important; background: var(--bg-hover) !important; border-radius: var(--radius-md) !important; }
-    .fin-person-btn { width: auto !important; margin-bottom: 0 !important; white-space: nowrap !important; padding: 8px 14px !important; flex-shrink: 0 !important; }
-    .fin-sidebar > div:last-child { border-top: none !important; border-left: 1px solid var(--border-color) !important; margin-top: 0 !important; padding-top: 0 !important; padding-left: 8px !important; flex-shrink: 0 !important; }
-    .fin-panels-grid { grid-template-columns: 1fr !important; gap: var(--spacing-3) !important; width: 100% !important; }
-
-    .fin-kpi-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 8px !important; width: 100% !important; }
-    .fin-kpi { padding: 12px 14px !important; gap: 6px !important; }
-    .fin-kpi-header h4 { font-size: 0.68rem !important; }
-    .fin-kpi-icon { width: 30px !important; height: 30px !important; font-size: 0.85rem !important; }
-    .fin-kpi-data .value { font-size: 1.15rem !important; }
-
-    .an-summary-grid, .bsa-summary-bar { grid-template-columns: repeat(2, 1fr) !important; gap: 8px !important; width: 100% !important; }
-    .an-grid-2, .an-grid-3 { grid-template-columns: 1fr !important; gap: 12px !important; width: 100% !important; }
-
-    /* Section Header & Segment Toggles touch scroll */
-    .fin-section-header { flex-direction: column !important; align-items: stretch !important; gap: 10px !important; width: 100% !important; }
-    .fin-type-toggle, .an-pill-toggle { display: flex !important; overflow-x: auto !important; -webkit-overflow-scrolling: touch; width: 100% !important; max-width: 100% !important; flex-wrap: nowrap !important; scrollbar-width: none; box-sizing: border-box !important; padding: 4px !important; gap: 4px !important; }
-    .fin-type-toggle::-webkit-scrollbar, .an-pill-toggle::-webkit-scrollbar { display: none; }
-    .fin-type-btn, .an-pill-btn { flex-shrink: 0 !important; flex: 1 0 auto !important; padding: 8px 12px !important; font-size: 0.78rem !important; text-align: center !important; white-space: nowrap !important; }
-
-    /* Loans & Forms on Mobile */
-    .loan-header { flex-direction: column !important; align-items: flex-start !important; gap: 8px !important; }
-    .loan-stats { grid-template-columns: repeat(2, 1fr) !important; gap: 8px !important; }
-    .fin-form-row { grid-template-columns: 1fr !important; gap: 10px !important; width: 100% !important; }
-
-    /* Controls bar flex column */
-    .an-controls-bar, .bsa-toolbar { flex-direction: column !important; align-items: stretch !important; gap: 12px !important; width: 100% !important; box-sizing: border-box !important; }
-    .an-controls-group { flex-direction: column !important; align-items: stretch !important; gap: 8px !important; width: 100% !important; }
-
-    /* Tables mobile scroll */
-    .bsa-table-wrap, .table-responsive { width: 100% !important; max-width: 100% !important; overflow-x: auto !important; -webkit-overflow-scrolling: touch; }
-    .bsa-table, .data-table { min-width: 560px !important; }
-
-    /* Modal */
-    .gm-dialog,
-    .task-modal { width: 95vw; max-width: 95vw; }
-    .gm-row, .task-form-row { grid-template-columns: 1fr; }
-    .gm-row-3 { grid-template-columns: 1fr; }
+    /* Settings Data Buttons */
+    .btn-group {
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 8px !important;
+        width: 100% !important;
+    }
+    .btn-group .btn {
+        width: 100% !important;
+        justify-content: center !important;
+    }
 }
 
 /* ========== SMALL MOBILE (max-width: 480px) ========== */
 @media (max-width: 480px) {
-    .views-container { padding: var(--spacing-2); }
-    .view-header h1 { font-size: 1.2rem; }
-    .subtitle { font-size: 0.85rem; }
+    .views-container {
+        padding: 10px 10px calc(74px + env(safe-area-inset-bottom, 16px)) 10px !important;
+    }
+    .view-header h1 { font-size: 1.2rem !important; }
+    .subtitle { font-size: 0.82rem !important; }
 
-    /* KPIs stack */
+    /* Hide User Display Name, show Avatar only */
+    .user-display-name {
+        display: none !important;
+    }
+
+    /* Topbar Search Hide / Compact */
+    .topbar-search {
+        display: none !important;
+    }
+
+    /* Single Column KPI Stacks on Narrow Mobile */
     .proj-kpi-grid,
     .goals-kpi-grid,
     .meet-kpi-grid,
-    .analytics-kpi-grid { grid-template-columns: 1fr; }
-
-    .kpi-card { padding: var(--spacing-3); }
-    .kpi-icon { width: 40px; height: 40px; font-size: 1.2rem; }
-    .kpi-value { font-size: 1.4rem; }
-
-    /* Calendar compact */
-    .cal-cell { min-height: 40px; }
-    .cal-header h2 { font-size: 1rem; }
-    .cal-sidebar { display: none; }
-
-    /* Topbar */
-    .topbar-search { display: none; }
-    .topbar { height: 52px; }
-
-    /* Button text */
-    .btn-primary, .btn-secondary { font-size: 0.82rem; padding: 8px 14px; }
-    .icon-btn { width: 32px; height: 32px; }
-
-    /* Project/goal card actions */
-    .proj-actions,
-    .goal-actions,
-    .meet-actions { gap: var(--spacing-1); }
-    .proj-act-btn,
-    .goal-act-btn,
-    .meet-act-btn { padding: 5px 8px; font-size: 0.75rem; }
-
-    /* Notes editor */
-    .notes-title-input { font-size: 1.1rem; padding: var(--spacing-2); }
-    .notes-content-area { font-size: 0.9rem; }
-    .notes-editor-toolbar { gap: 2px; }
-    .notes-tool-btn { width: 28px; height: 28px; font-size: 0.75rem; }
-
-    /* Analytics & Finance small mobile stack */
+    .analytics-kpi-grid,
     .fin-kpi-grid,
     .an-summary-grid,
-    .bsa-summary-bar { grid-template-columns: 1fr !important; }
-    .an-summary-val, .fin-kpi-data .value { font-size: 1.15rem !important; }
-    .bsa-upload-card { padding: 24px 14px !important; }
-    .bsa-upload-icon { font-size: 2.2rem !important; }
-    .bsa-upload-title { font-size: 1.1rem !important; }
+    .bsa-summary-bar {
+        grid-template-columns: 1fr !important;
+        gap: 8px !important;
+    }
+
+    .kpi-card { padding: 12px !important; }
+    .kpi-icon { width: 36px !important; height: 36px !important; font-size: 1.1rem !important; }
+    .kpi-value, .an-summary-val, .fin-kpi-data .value { font-size: 1.25rem !important; }
+
+    /* Calendar Compact */
+    .cal-cell { min-height: 40px !important; }
+    .cal-header h2 { font-size: 0.95rem !important; }
+    .cal-sidebar { display: none !important; }
+
+    /* Button Sizing */
+    .btn-primary, .btn-secondary { font-size: 0.82rem !important; padding: 8px 12px !important; }
+    .icon-btn { width: 34px !important; height: 34px !important; }
+
+    /* Project / Goal Card Actions */
+    .proj-actions,
+    .goal-actions,
+    .meet-actions { gap: 4px !important; }
+    .proj-act-btn,
+    .goal-act-btn,
+    .meet-act-btn { padding: 5px 8px !important; font-size: 0.72rem !important; }
+
+    /* Notes Editor */
+    .notes-title-input { font-size: 1.05rem !important; padding: 8px !important; }
+    .notes-content-area { font-size: 0.88rem !important; }
+    .notes-editor-toolbar { gap: 2px !important; flex-wrap: wrap !important; }
+    .notes-tool-btn { width: 28px !important; height: 28px !important; font-size: 0.75rem !important; }
+
+    /* Bank Statement Upload Card */
+    .bsa-upload-card { padding: 20px 12px !important; }
+    .bsa-upload-icon { font-size: 2rem !important; }
+    .bsa-upload-title { font-size: 1rem !important; }
+
+    /* Modal Form Action Buttons Stack Vertically */
+    .gm-footer,
+    .task-modal-footer {
+        flex-direction: column-reverse !important;
+    }
+    .gm-footer .btn,
+    .task-modal-footer .btn {
+        width: 100% !important;
+    }
+}
+
+/* ========== COMPACT MOBILE (max-width: 360px) ========== */
+@media (max-width: 360px) {
+    .views-container {
+        padding: 8px 8px calc(72px + env(safe-area-inset-bottom, 12px)) 8px !important;
+    }
+    .view-header h1 { font-size: 1.1rem !important; }
+    .fin-person-btn { padding: 6px 8px !important; font-size: 0.78rem !important; }
+    .mobile-nav-item span { font-size: 0.65rem !important; }
+    .mobile-nav-item i { font-size: 1rem !important; }
 }
 
 /* ========== ACCESSIBILITY: Touch targets ========== */
@@ -480,7 +819,7 @@
     .icon-btn { min-width: 44px; min-height: 44px; }
     .habit-check { min-width: 44px; min-height: 44px; }
     .goal-kr-check { min-width: 32px; min-height: 32px; }
-    .cal-cell { min-height: 56px; }
+    .cal-cell { min-height: 52px; }
 }
 
 /* ========== LARGE DESKTOP (min-width: 1440px) ========== */
