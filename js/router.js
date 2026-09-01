@@ -31,7 +31,7 @@ export class Router {
     bindEvents() {
         // Event delegation on document so static and dynamic links work 100% reliably
         document.addEventListener('click', (e) => {
-            const navItem = e.target.closest('.nav-item[data-view]');
+            const navItem = e.target.closest('.nav-item[data-view], .mobile-nav-item[data-view]');
             if (navItem) {
                 const viewId = navItem.getAttribute('data-view');
                 if (viewId) {
@@ -49,13 +49,13 @@ export class Router {
 
     navigateTo(viewId) {
         const views = document.querySelectorAll('.view');
-        const navItems = document.querySelectorAll('.nav-item[data-view]');
+        const navItems = document.querySelectorAll('.nav-item[data-view], .mobile-nav-item[data-view]');
 
         views.forEach(v => v.classList.remove('active'));
         navItems.forEach(n => n.classList.remove('active'));
 
         const targetView = document.getElementById(`view-${viewId}`);
-        const targetNavs = document.querySelectorAll(`.nav-item[data-view="${viewId}"]`);
+        const targetNavs = document.querySelectorAll(`.nav-item[data-view="${viewId}"], .mobile-nav-item[data-view="${viewId}"]`);
 
         if (targetView) {
             targetView.classList.add('active');

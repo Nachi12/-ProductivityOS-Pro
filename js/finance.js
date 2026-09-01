@@ -354,19 +354,19 @@ export class FinanceManager {
                 </div>
 
                 <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-                    <div style="flex:1; min-width:280px; display:flex; gap:8px;">
+                    <div style="flex:1; min-width:260px; display:flex; gap:8px;">
                         <input type="text" id="ai-cmd-input" class="fin-form-input" style="flex:1; font-size:0.85rem; padding:9px 14px;" placeholder="Ask Copilot anything about your cash flow, debt, or savings...">
                         <button class="btn btn-primary" id="ai-cmd-btn" style="font-weight:600; padding:9px 18px; font-size:0.85rem;"><i class="fa-solid fa-bolt" style="margin-right:4px;"></i> Ask AI</button>
                     </div>
-                    <div style="display:flex; gap:8px;">
+                    <div style="display:flex; gap:8px; flex-wrap:wrap;">
                         <button class="btn btn-secondary" id="ai-analyze-finances-btn" style="font-size:0.8rem; padding:8px 14px;"><i class="fa-solid fa-stethoscope" style="color:var(--accent-color); margin-right:4px;"></i> Run Diagnosis</button>
                         <button class="btn btn-secondary" id="ai-create-action-plan" style="font-size:0.8rem; padding:8px 14px;"><i class="fa-solid fa-list-check" style="color:var(--clr-green); margin-right:4px;"></i> Action Plan</button>
                     </div>
                 </div>
-            </div>  </div>
+            </div>
 
             <!-- 5 TOP KPI METRIC CARDS ROW -->
-            <div style="display:grid; grid-template-columns: repeat(5, 1fr); gap: 14px; margin-bottom: 20px;">
+            <div class="fin-kpi-grid dash-kpi-row" style="margin-bottom: 20px;">
                 <!-- 1. Monthly Income -->
                 <div class="dash-card">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
@@ -429,7 +429,7 @@ export class FinanceManager {
             </div>
 
             <!-- MIDDLE ROW GRID: Cash Flow Overview | Expense Distribution | Top AI Insights -->
-            <div style="display:grid; grid-template-columns: 1.1fr 0.9fr 1fr; gap: 16px; margin-bottom: 20px;">
+            <div class="an-grid-3 dash-middle-grid" style="margin-bottom: 20px;">
                 <!-- Cash Flow Dual Bar Chart -->
                 <div class="dash-card">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
@@ -514,7 +514,7 @@ export class FinanceManager {
             </div>
 
             <!-- BOTTOM ROW GRID: Recent Transactions | Goals Progress | Upcoming Obligations -->
-            <div style="display:grid; grid-template-columns: 1.1fr 1fr 0.9fr; gap: 16px; margin-bottom: 20px;">
+            <div class="an-grid-3 dash-bottom-grid" style="margin-bottom: 20px;">
                 <!-- Recent Transactions -->
                 <div class="dash-card">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
@@ -1031,7 +1031,7 @@ export class FinanceManager {
                 </div>
                 <p class="subtitle text-muted" style="margin-bottom: 18px; font-size:0.85rem;">See how adding an extra monthly payment reduces interest and accelerates your debt-free date.</p>
                 
-                <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items:start;">
+                <div class="an-grid-2" style="gap: 24px; align-items:start;">
                     <div style="display:flex; flex-direction:column; gap:14px;">
                         <div>
                             <label style="font-weight:600; font-size:0.84rem; display:block; margin-bottom:6px; color:var(--text-primary);">Extra Monthly Payment (₹)</label>
@@ -1195,7 +1195,7 @@ export class FinanceManager {
                 </div>
                 <p class="subtitle text-muted" style="margin-bottom: 18px; font-size:0.85rem;">Simulate your compounding timeline to reach ₹1 Crore net worth based on monthly investments and return rate assumptions.</p>
                 
-                <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items:start;">
+                <div class="an-grid-2" style="gap: 20px; align-items:start;">
                     <div style="display:flex; flex-direction:column; gap:14px;">
                         <div>
                             <label style="font-weight:600; font-size:0.84rem; display:block; margin-bottom:6px; color:var(--text-primary);">Monthly Investment (₹)</label>
@@ -1310,7 +1310,7 @@ export class FinanceManager {
             </div>
             <div class="card" style="padding:24px; margin-top:16px;">
                 <h2><i class="fa-solid fa-chart-area" style="color:var(--accent-color);"></i> 5-Year Wealth Growth Projection</h2>
-                <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 20px;">
+                <div class="an-grid-3" style="gap: 16px; margin-top: 20px;">
                     <div style="background:var(--bg-hover); padding:16px; border-radius:var(--radius-md); border:1px solid var(--border-color);">
                         <h4 style="color:var(--clr-blue); margin-bottom:8px;">Conservative (5% Return)</h4>
                         <div style="font-size:1.5rem; font-weight:700;">${this.formatCurrency(2500000)}</div>
