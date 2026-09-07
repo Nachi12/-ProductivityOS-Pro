@@ -143,12 +143,6 @@ export function showFormModal(opts) {
         const { overlay, body, footer, close } = createShell(opts.title, opts.icon);
         const fieldEls = {};
 
-        if (opts.customContent) {
-            const div = document.createElement('div');
-            div.innerHTML = opts.customContent;
-            body.appendChild(div);
-        }
-
         // Build fields
         (opts.fields || []).forEach(f => {
             const wrapper = document.createElement('div');

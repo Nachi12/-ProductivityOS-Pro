@@ -12,6 +12,7 @@ export class BankStatementAnalyzer {
         this.activeStep = 'upload'; // 'upload', 'review', 'analysis'
         this.currentStatement = null; // currently parsed or selected statement
         this.filterStatus = 'all'; // 'all', 'review', 'duplicate'
+        this.analysisMonthFilter = 'all'; // 'all' or 'YYYY-MM'
         this.chartInstance = null;
     }
 
@@ -662,7 +663,28 @@ export class BankStatementAnalyzer {
             return;
         }
 
-        const txns = stmt.transactions.filter(t => t.selectedForImport !== false);
+        let baseTxns = stmt.transactions.filter(t => t.selectedForImport !== false);
+        
+        // Extract Unique Months
+        const monthSet = new Set();
+        baseTxns.forEach(t => {
+            if (t.date) {
+                const parts = t.date.split('-');
+                if (parts.length >= 2) monthSet.add(`${parts[0]}-${parts[1]}`);
+            }
+        });
+        const uniqueMonths = Array.from(monthSet).sort().reverse();
+        const formatMonth = (yyyy_mm) => {
+            const [y, m] = yyyy_mm.split('-');
+            const d = new Date(parseInt(y), parseInt(m) - 1, 1);
+            return d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+        };
+
+        // Filter transactions based on selected month
+        let txns = baseTxns;
+        if (this.analysisMonthFilter !== 'all') {
+            txns = baseTxns.filter(t => t.date && t.date.startsWith(this.analysisMonthFilter));
+        }
         const credits = txns.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
         const debits = txns.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
         const netCashflow = credits - debits;
@@ -681,11 +703,11 @@ export class BankStatementAnalyzer {
         const descCounts = {};
         txns.forEach(t => {
             const key = (t.merchant || t.description.substring(0, 15)).toUpperCase();
-            if (!descCounts[key]) descCounts[key] = { merchant: t.merchant || t.description, count: 0, total: 0, category: t.category };
+            if (!descCounts[key]) descCounts[key] = { merchant: t.merchant || t.description, count: 0, total: 0, category: t.category, type: t.type };
             descCounts[key].count++;
             descCounts[key].total += t.amount;
         });
-        const recurringList = Object.values(descCounts).filter(x => x.count >= 2);
+        const recurringList = Object.values(descCounts).filter(x => x.count >= 2).sort((a,b) => b.count - a.count);
 
         // Detect Unusual Spending Spikes (> 2x average expense)
         const avgExpense = txns.filter(t => t.type === 'expense').length > 0 ? (debits / txns.filter(t => t.type === 'expense').length) : 0;
@@ -699,7 +721,15 @@ export class BankStatementAnalyzer {
                             <h2 style="font-size:1.25rem; font-weight:700; margin-bottom:2px;"><i class="fa-solid fa-chart-pie" style="color:var(--accent-color)"></i> Statement Analysis: ${stmt.bankName}</h2>
                             <p style="font-size:0.83rem; color:var(--text-muted); margin:0;">Statement Period: ${stmt.startDate} to ${stmt.endDate} (${txns.length} transactions)</p>
                         </div>
-                        <div style="display:flex; gap:8px;">
+                        <div style="display:flex; gap:8px; align-items:center;">
+                            ${uniqueMonths.length > 0 ? `
+                                <select id="bsa-month-filter" class="an-select" style="padding:6px 12px; font-size:0.85rem; font-weight:600; border:1px solid var(--border-color); border-radius:var(--radius-md); background:var(--bg-input); color:var(--text-primary);">
+                                    <option value="all" ${this.analysisMonthFilter === 'all' ? 'selected' : ''}>All Months</option>
+                                    ${uniqueMonths.map(m => `
+                                        <option value="${m}" ${this.analysisMonthFilter === m ? 'selected' : ''}>${formatMonth(m)}</option>
+                                    `).join('')}
+                                </select>
+                            ` : ''}
                             <button class="btn btn-secondary" id="bsa-an-back"><i class="fa-solid fa-arrow-left"></i> Back to Analyzer</button>
                             <button class="btn btn-secondary" id="bsa-an-delete" style="background:rgba(229,57,53,0.12); color:var(--clr-red); border:1px solid var(--clr-red); font-size:0.83rem;"><i class="fa-solid fa-trash"></i> Delete Statement & Data</button>
                         </div>
@@ -768,8 +798,13 @@ export class BankStatementAnalyzer {
                                 <div style="display:flex; flex-direction:column; gap:8px;">
                                     ${recurringList.map(r => `
                                         <div style="padding:10px; background:var(--bg-input); border-radius:var(--radius-md); border:1px solid var(--border-color); font-size:0.83rem;">
-                                            <div style="font-weight:700; color:var(--text-primary);">${r.merchant}</div>
-                                            <div style="color:var(--text-muted); margin-top:2px;">${r.count} Occurrences • Avg: ${formatINR(r.total / r.count)}</div>
+                                            <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                                                <div style="font-weight:700; color:var(--text-primary); max-width:75%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${r.merchant}">${r.merchant}</div>
+                                                <span class="bsa-badge ${r.type === 'income' ? 'income' : 'expense'}" style="font-size:0.7rem; padding:2px 6px;">${r.type === 'income' ? 'Income' : 'Expense'}</span>
+                                            </div>
+                                            <div style="color:var(--text-muted); margin-top:4px;">
+                                                ${r.count} Occurrences • Avg: <span style="font-weight:700; color:${r.type === 'income' ? 'var(--clr-green)' : 'var(--clr-red)'}">${formatINR(r.total / r.count)}</span>
+                                            </div>
                                         </div>
                                     `).join('')}
                                 </div>
@@ -803,6 +838,11 @@ export class BankStatementAnalyzer {
         document.getElementById('bsa-an-back')?.addEventListener('click', () => {
             this.activeStep = 'upload';
             this.render();
+        });
+
+        document.getElementById('bsa-month-filter')?.addEventListener('change', (e) => {
+            this.analysisMonthFilter = e.target.value;
+            this.renderAnalysisStep();
         });
 
         document.getElementById('bsa-an-delete')?.addEventListener('click', async () => {

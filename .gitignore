@@ -1,6 +1,5 @@
-# Dependencies & Build Outputs
+# Dependencies
 node_modules/
-dist/
 
 # Environment variables & secrets
 .env
@@ -10,9 +9,5 @@ dist/
 *.log
 npm-debug.log*
 
-# System & OS metadata files
+# System files
 .DS_Store
-._*
-.Spotlight-V100
-.Trashes
-

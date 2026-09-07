@@ -1,7 +1,8 @@
 import { showToast } from './toast.js';
-import { showConfirmModal, showFormModal, showCustomModal } from './modal.js';
+import { showConfirmModal, showFormModal } from './modal.js';
 import { attachCurrencyFormatter, getRawValue } from './formatters.js';
 import { BankStatementAnalyzer } from './bank-statement-analyzer.js';
+import { AIFinancialEngine } from './ai-financial-engine.js';
 
 export class FinanceManager {
     constructor(storage) {
@@ -13,17 +14,14 @@ export class FinanceManager {
         if (activeMember === 'Main') activeMember = 'All';
         
         this.currentPersonFilter = activeMember;
-        this.currentViewMode = 'expense'; // 'expense', 'income', 'loans', or 'analyzer'
+        this.currentViewMode = 'overview'; // 'overview', 'expense', 'income', 'loans', or 'analyzer'
         this.bsa = new BankStatementAnalyzer(this.storage);
     }
 
-    init(viewId = 'finance') {
-        if (typeof viewId === 'string') {
-            this.activeView = viewId;
-        }
+    init() {
         this.runDatabaseCleanupMigration();
         this.injectStyles();
-        this.render(this.activeView || 'finance');
+        this.render();
     }
 
     runDatabaseCleanupMigration() {
@@ -84,20 +82,7 @@ export class FinanceManager {
     }
 
     getTransactions() {
-        let txns = this.storage.get('transactions');
-        if (!txns || !Array.isArray(txns) || txns.length === 0) {
-            txns = [
-                { id: 'txn_1', title: 'Monthly Salary Credit', amount: 95000, type: 'income', category: 'Salary', date: new Date().toISOString().split('T')[0] },
-                { id: 'txn_2', title: 'Freelance Design Retainer', amount: 15000, type: 'income', category: 'Freelance', date: new Date().toISOString().split('T')[0] },
-                { id: 'txn_3', title: 'Apartment Rent Payment', amount: 25000, type: 'expense', category: 'Rent', date: new Date().toISOString().split('T')[0] },
-                { id: 'txn_4', title: 'Swiggy & Dining Expenditures', amount: 12400, type: 'expense', category: 'Food', date: new Date().toISOString().split('T')[0] },
-                { id: 'txn_5', title: 'Supermarket Groceries', amount: 8500, type: 'expense', category: 'Bills', date: new Date().toISOString().split('T')[0] },
-                { id: 'txn_6', title: 'Electricity & Fiber Broadband', amount: 4200, type: 'expense', category: 'Utilities', date: new Date().toISOString().split('T')[0] },
-                { id: 'txn_7', title: 'HDFC Home Loan Monthly EMI', amount: 15000, type: 'expense', category: 'EMI', date: new Date().toISOString().split('T')[0] },
-                { id: 'txn_8', title: 'Netflix & Spotify Subscriptions', amount: 1499, type: 'expense', category: 'Entertainment', date: new Date().toISOString().split('T')[0] }
-            ];
-            this.storage.set('transactions', txns);
-        }
+        let txns = this.storage.get('transactions') || [];
         return txns.map(t => ({
             ...t,
             title: t.title || t.description || 'Untitled Transaction',
@@ -106,13 +91,7 @@ export class FinanceManager {
     }
 
     getLoans() {
-        let loans = this.storage.get('loans');
-        if (!loans || !Array.isArray(loans) || loans.length === 0) {
-            loans = [
-                { id: 'loan_1', title: 'HDFC Home Loan', bank: 'HDFC Bank', amountSanctioned: 3500000, amountLeftToPay: 2800000, emiPerMonth: 15000, interestRate: 8.5, emiDate: 5 }
-            ];
-            this.storage.set('loans', loans);
-        }
+        let loans = this.storage.get('loans') || [];
         return loans.map(l => ({ ...l, person: (l.person === 'Main' ? '' : (l.person || '')) }));
     }
 
@@ -286,499 +265,114 @@ export class FinanceManager {
         this.stylesInjected = true;
     }
 
-    render(viewId = 'finance') {
-        if (viewId === 'money') return this.renderMoneyLedgerView();
-        if (viewId === 'analysis') return this.renderAnalysisView();
-        if (viewId === 'debt') return this.renderDebtView();
-        if (viewId === 'wealth') return this.renderWealthView();
-        if (viewId === 'goals') return this.renderGoalsView();
-        if (viewId === 'forecast') return this.renderForecastView();
-        if (viewId === 'ai-copilot') return this.renderAICopilotView();
-        if (viewId === 'reports') return this.renderReportsView();
-
-        return this.renderOverviewView();
-    }
-
-    renderOverviewView() {
+    render() {
         const container = document.getElementById('view-finance');
-        if (!container) return;
-
-        const allTxns = this.getTransactions();
-        const allLoans = this.getLoans();
-        
-        let txns = allTxns;
-        let loans = allLoans;
-
-        if (this.currentPersonFilter !== 'All') {
-            const targetFilter = this.currentPersonFilter.toLowerCase().trim();
-            txns = allTxns.filter(t => t.person && t.person.toLowerCase().trim() === targetFilter);
-            loans = allLoans.filter(l => l.person && l.person.toLowerCase().trim() === targetFilter);
-        }
-
-        const calcIncome = txns.filter(t => t.type === 'income').reduce((s, t) => s + (parseFloat(t.amount) || 0), 0);
-        const calcExpenses = txns.filter(t => t.type === 'expense' || !t.type).reduce((s, t) => s + (parseFloat(t.amount) || 0), 0);
-        
-        const income = calcIncome > 0 ? calcIncome : 112074;
-        const expenses = calcExpenses > 0 ? calcExpenses : 89983.68;
-        const netCash = income - expenses;
-        const savingsRate = income > 0 ? Math.round((netCash / income) * 100) : 20;
-
-        const recentTxns = [...txns].sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0)).slice(0, 5);
-
-        container.innerHTML = `
-            <!-- HEADER BAR -->
-            <div class="view-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px; flex-wrap:wrap; gap:12px;">
-                <div>
-                    <h1 style="font-size: 1.8rem; font-weight: 700; display: flex; align-items: center; gap: 10px; margin: 0;">
-                        <i class="fa-solid fa-vault" style="color: var(--accent-color);"></i> Financial Command Center
-                    </h1>
-                    <p class="subtitle text-muted" style="margin-top: 4px; font-size: 0.88rem;">Real-time household ledger, health score & cash flow metrics</p>
-                </div>
-                <div style="display:flex; gap:10px;">
-                    <button class="btn btn-secondary" id="banner-quick-add" style="font-size:0.82rem; padding:8px 14px;"><i class="fa-solid fa-plus" style="margin-right:6px;"></i> Add Entry</button>
-                    <button class="btn btn-secondary" id="banner-upload-stmt" style="font-size:0.82rem; padding:8px 14px;"><i class="fa-solid fa-upload" style="margin-right:6px;"></i> Upload Statement</button>
-                </div>
-            </div>
-
-            <!-- AI COPILOT SMART BAR -->
-            <div class="dash-card" style="margin-bottom: 20px; padding: 18px 22px; border-left: 4px solid var(--accent-color, #7c3aed);">
-                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom: 12px;">
-                    <div style="display:flex; align-items:center; gap:10px;">
-                        <i class="fa-solid fa-wand-magic-sparkles" style="color:var(--accent-color, #7c3aed); font-size:1.1rem;"></i>
-                        <h3 style="margin:0; font-size:0.98rem; font-weight:700; color:var(--text-primary);">AI Financial Copilot</h3>
-                        <span class="dash-pill" style="font-size:0.72rem; padding:3px 8px; color:var(--clr-green, #22c55e);"><i class="fa-solid fa-circle" style="font-size:0.5rem; margin-right:4px;"></i> Ready</span>
-                    </div>
-                    <div style="font-size:0.82rem; color:var(--text-muted);">
-                        <strong style="color:var(--clr-orange, #f59e0b);"><i class="fa-solid fa-triangle-exclamation" style="margin-right:4px;"></i> Alert:</strong> Food spending accounts for 18.6% of expenses.
-                    </div>
-                </div>
-
-                <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-                    <div style="flex:1; min-width:260px; display:flex; gap:8px;">
-                        <input type="text" id="ai-cmd-input" class="fin-form-input" style="flex:1; font-size:0.85rem; padding:9px 14px;" placeholder="Ask Copilot anything about your cash flow, debt, or savings...">
-                        <button class="btn btn-primary" id="ai-cmd-btn" style="font-weight:600; padding:9px 18px; font-size:0.85rem;"><i class="fa-solid fa-bolt" style="margin-right:4px;"></i> Ask AI</button>
-                    </div>
-                    <div style="display:flex; gap:8px; flex-wrap:wrap;">
-                        <button class="btn btn-secondary" id="ai-analyze-finances-btn" style="font-size:0.8rem; padding:8px 14px;"><i class="fa-solid fa-stethoscope" style="color:var(--accent-color); margin-right:4px;"></i> Run Diagnosis</button>
-                        <button class="btn btn-secondary" id="ai-create-action-plan" style="font-size:0.8rem; padding:8px 14px;"><i class="fa-solid fa-list-check" style="color:var(--clr-green); margin-right:4px;"></i> Action Plan</button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 5 TOP KPI METRIC CARDS ROW -->
-            <div class="fin-kpi-grid dash-kpi-row" style="margin-bottom: 20px;">
-                <!-- 1. Monthly Income -->
-                <div class="dash-card">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                        <span class="dash-kpi-title">Monthly Income ↑</span>
-                        <div style="width:28px; height:28px; border-radius:6px; background:rgba(34,197,94,0.15); display:flex; align-items:center; justify-content:center;"><i class="fa-solid fa-arrow-up" style="color:var(--clr-green, #22c55e); font-size:0.8rem;"></i></div>
-                    </div>
-                    <div class="dash-kpi-val" style="color:var(--clr-green, #22c55e);">${this.formatCurrency(income)}</div>
-                    <div style="font-size:0.75rem; color:var(--clr-green, #22c55e); margin-bottom:8px;">↑ 8.2% vs last month</div>
-                    <svg viewBox="0 0 100 20" style="width:100%; height:20px; stroke:var(--clr-green, #22c55e); stroke-width:2; fill:none;"><path d="M0 15 Q25 5, 50 12 T100 2"/></svg>
-                </div>
-
-                <!-- 2. Monthly Expenses -->
-                <div class="dash-card">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                        <span class="dash-kpi-title">Monthly Expenses ↑</span>
-                        <div style="width:28px; height:28px; border-radius:6px; background:rgba(239,68,68,0.15); display:flex; align-items:center; justify-content:center;"><i class="fa-solid fa-xmark" style="color:var(--clr-red, #ef4444); font-size:0.8rem;"></i></div>
-                    </div>
-                    <div class="dash-kpi-val">${this.formatCurrency(expenses)}</div>
-                    <div style="font-size:0.75rem; color:var(--clr-red, #ef4444); margin-bottom:8px;">↑ 12.1% vs last month</div>
-                    <svg viewBox="0 0 100 20" style="width:100%; height:20px; stroke:var(--clr-red, #ef4444); stroke-width:2; fill:none;"><path d="M0 5 Q25 18, 50 8 T100 15"/></svg>
-                </div>
-
-                <!-- 3. Net Cash Surplus -->
-                <div class="dash-card">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                        <span class="dash-kpi-title">Net Cash Surplus</span>
-                        <div style="width:28px; height:28px; border-radius:6px; background:rgba(59,130,246,0.15); display:flex; align-items:center; justify-content:center;"><i class="fa-solid fa-scale-balanced" style="color:var(--clr-blue, #3b82f6); font-size:0.8rem;"></i></div>
-                    </div>
-                    <div class="dash-kpi-val" style="color:${netCash >= 0 ? 'var(--clr-green, #22c55e)' : 'var(--clr-red, #ef4444)'};">${this.formatCurrency(netCash)}</div>
-                    <div style="font-size:0.75rem; color:var(--clr-blue, #3b82f6); margin-bottom:8px;">↑ 5.4% vs last month</div>
-                    <svg viewBox="0 0 100 20" style="width:100%; height:20px; stroke:var(--clr-blue, #3b82f6); stroke-width:2; fill:none;"><path d="M0 12 Q25 18, 50 5 T100 10"/></svg>
-                </div>
-
-                <!-- 4. Savings Rate -->
-                <div class="dash-card">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                        <span class="dash-kpi-title">Savings Rate</span>
-                        <div style="width:28px; height:28px; border-radius:6px; background:rgba(168,85,247,0.15); display:flex; align-items:center; justify-content:center;"><i class="fa-solid fa-percent" style="color:#a855f7; font-size:0.8rem;"></i></div>
-                    </div>
-                    <div class="dash-kpi-val">${savingsRate}%</div>
-                    <div style="font-size:0.75rem; color:var(--clr-green, #22c55e); margin-bottom:8px;">↑ 2.5% vs last month</div>
-                    <svg viewBox="0 0 100 20" style="width:100%; height:20px; stroke:#a855f7; stroke-width:2; fill:none;"><path d="M0 18 Q25 10, 50 14 T100 4"/></svg>
-                </div>
-
-                <!-- 5. Financial Health Score Donut -->
-                <div class="dash-card" style="display:flex; justify-content:space-between; align-items:center;">
-                    <div>
-                        <span class="dash-kpi-title" style="display:block; margin-bottom:4px;">Financial Health Score</span>
-                        <div style="font-size:1.2rem; font-weight:700; color:var(--clr-green, #22c55e);">Good</div>
-                        <div style="font-size:0.72rem; color:var(--clr-red, #ef4444); margin-top:2px;">↓ 3 pts vs last month</div>
-                    </div>
-                    <div style="position:relative; width:54px; height:54px; display:flex; align-items:center; justify-content:center;">
-                        <svg viewBox="0 0 36 36" style="width:54px; height:54px;">
-                            <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="var(--border-color)" stroke-width="3"/>
-                            <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="var(--clr-green, #22c55e)" stroke-width="3" stroke-dasharray="78, 100"/>
-                        </svg>
-                        <span style="position:absolute; font-size:0.85rem; font-weight:800; color:var(--text-primary);">78<span style="font-size:0.55rem; color:var(--text-muted);">/100</span></span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- MIDDLE ROW GRID: Cash Flow Overview | Expense Distribution | Top AI Insights -->
-            <div class="an-grid-3 dash-middle-grid" style="margin-bottom: 20px;">
-                <!-- Cash Flow Dual Bar Chart -->
-                <div class="dash-card">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
-                        <h3 style="margin:0; font-size:0.95rem; font-weight:700; color:var(--text-primary);">Cash Flow Overview</h3>
-                        <div style="display:flex; align-items:center; gap:12px; font-size:0.75rem;">
-                            <span style="color:var(--text-muted);"><span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--clr-green, #22c55e); margin-right:4px;"></span>Income</span>
-                            <span style="color:var(--text-muted);"><span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--clr-red, #ef4444); margin-right:4px;"></span>Expenses</span>
-                            <span style="color:var(--text-muted);"><span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--clr-blue, #3b82f6); margin-right:4px;"></span>Savings</span>
-                        </div>
-                    </div>
-                    <div style="height:180px; display:flex; align-items:flex-end; justify-content:space-between; padding-top:10px; gap:6px;">
-                        ${[...Array(12)].map((_, i) => `
-                            <div style="display:flex; flex-direction:column; align-items:center; gap:2px; flex:1;">
-                                <div style="display:flex; gap:2px; align-items:flex-end; height:140px;">
-                                    <div style="width:6px; background:var(--clr-green, #22c55e); border-radius:2px; height:${40 + (i%5)*12}px;"></div>
-                                    <div style="width:6px; background:var(--clr-red, #ef4444); border-radius:2px; height:${30 + (i%4)*15}px;"></div>
-                                </div>
-                                <span style="font-size:0.65rem; color:var(--text-muted);">${(i+1)*2.5|0}</span>
-                            </div>
-                        `).join('')}
-                    </div>
-                </div>
-
-                <!-- Expense Distribution Donut -->
-                <div class="dash-card">
-                    <h3 style="margin:0 0 14px 0; font-size:0.95rem; font-weight:700; color:var(--text-primary);">Expense Distribution</h3>
-                    <div style="display:flex; align-items:center; justify-content:space-between;">
-                        <div style="position:relative; width:120px; height:120px; display:flex; align-items:center; justify-content:center;">
-                            <svg viewBox="0 0 36 36" style="width:120px; height:120px;">
-                                <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="var(--border-color)" stroke-width="4"/>
-                                <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="var(--clr-green, #22c55e)" stroke-width="4" stroke-dasharray="67, 100"/>
-                                <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="var(--clr-red, #ef4444)" stroke-width="4" stroke-dasharray="20, 100" stroke-dashoffset="-67"/>
-                                <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#a855f7" stroke-width="4" stroke-dasharray="10, 100" stroke-dashoffset="-87"/>
-                            </svg>
-                            <div style="position:absolute; text-align:center;">
-                                <span style="font-size:0.85rem; font-weight:800; color:var(--text-primary); display:block;">${this.formatCurrency(expenses)}</span>
-                                <span style="font-size:0.65rem; color:var(--text-muted);">Total Expenses</span>
-                            </div>
-                        </div>
-                        <div style="font-size:0.78rem; display:flex; flex-direction:column; gap:8px;">
-                            <div style="display:flex; justify-content:space-between; gap:16px;"><span style="color:var(--text-muted);"><span style="color:var(--clr-green, #22c55e); margin-right:4px;">●</span> Other</span><strong>67%</strong><span style="color:var(--text-muted);">₹60,317.68</span></div>
-                            <div style="display:flex; justify-content:space-between; gap:16px;"><span style="color:var(--text-muted);"><span style="color:var(--clr-red, #ef4444); margin-right:4px;">●</span> Rent</span><strong>20%</strong><span style="color:var(--text-muted);">₹17,666.00</span></div>
-                            <div style="display:flex; justify-content:space-between; gap:16px;"><span style="color:var(--text-muted);"><span style="color:var(--clr-orange, #f59e0b); margin-right:4px;">●</span> Food</span><strong>10%</strong><span style="color:var(--text-muted);">₹9,000.00</span></div>
-                            <div style="display:flex; justify-content:space-between; gap:16px;"><span style="color:var(--text-muted);"><span style="color:#a855f7; margin-right:4px;">●</span> Transport</span><strong>3%</strong><span style="color:var(--text-muted);">₹3,000.00</span></div>
-                        </div>
-                    </div>
-                    <div style="text-align:center; margin-top:12px;">
-                        <a href="#money" style="font-size:0.78rem; color:var(--accent-color); text-decoration:none; font-weight:600;">View Full Breakdown →</a>
-                    </div>
-                </div>
-
-                <!-- Top AI Insights -->
-                <div class="dash-card">
-                    <h3 style="margin:0 0 12px 0; font-size:0.95rem; font-weight:700; color:var(--text-primary);">Top AI Insights</h3>
-                    <div style="display:flex; flex-direction:column; gap:10px;">
-                        <div style="background:var(--bg-hover); padding:10px 12px; border-radius:8px; font-size:0.8rem; border-left:3px solid var(--clr-orange, #f59e0b);">
-                            <div style="display:flex; justify-content:space-between; color:var(--clr-orange, #f59e0b); font-weight:700; margin-bottom:2px;">
-                                <span>⚠️ Spending Alert</span>
-                                <a href="#ai-copilot" style="color:var(--clr-green, #22c55e); text-decoration:none;">Analyze →</a>
-                            </div>
-                            <div style="color:var(--text-primary);">Food spending is 18.6% of your total expenses. <span style="color:var(--clr-red, #ef4444);">Impact: -₹3,200</span></div>
-                        </div>
-                        <div style="background:var(--bg-hover); padding:10px 12px; border-radius:8px; font-size:0.8rem; border-left:3px solid var(--clr-green, #22c55e);">
-                            <div style="display:flex; justify-content:space-between; color:var(--clr-green, #22c55e); font-weight:700; margin-bottom:2px;">
-                                <span>💡 Savings Opportunity</span>
-                                <a href="#ai-copilot" style="color:var(--clr-green, #22c55e); text-decoration:none;">Review →</a>
-                            </div>
-                            <div style="color:var(--text-primary);">You can save up to ₹5,800 by optimizing subscriptions. <span style="color:var(--clr-green, #22c55e);">Impact: +₹5,800</span></div>
-                        </div>
-                        <div style="background:var(--bg-hover); padding:10px 12px; border-radius:8px; font-size:0.8rem; border-left:3px solid #a855f7;">
-                            <div style="display:flex; justify-content:space-between; color:#a855f7; font-weight:700; margin-bottom:2px;">
-                                <span>📈 Positive Trend</span>
-                                <a href="#ai-copilot" style="color:var(--clr-green, #22c55e); text-decoration:none;">Details →</a>
-                            </div>
-                            <div style="color:var(--text-primary);">Your savings rate improved by 2.5% this month. Keep it up!</div>
-                        </div>
-                    </div>
-                    <div style="text-align:center; margin-top:10px;">
-                        <a href="#ai-copilot" style="font-size:0.78rem; color:var(--text-muted); text-decoration:none;">View All Insights →</a>
-                    </div>
-                </div>
-            </div>
-
-            <!-- BOTTOM ROW GRID: Recent Transactions | Goals Progress | Upcoming Obligations -->
-            <div class="an-grid-3 dash-bottom-grid" style="margin-bottom: 20px;">
-                <!-- Recent Transactions -->
-                <div class="dash-card">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-                        <h3 style="margin:0; font-size:0.95rem; font-weight:700; color:var(--text-primary);">Recent Transactions</h3>
-                        <a href="#money" style="font-size:0.78rem; color:var(--accent-color); text-decoration:none; font-weight:600;">View Full Ledger →</a>
-                    </div>
-                    <div class="table-responsive">
-                        <table class="data-table" style="font-size:0.8rem;">
-                            <thead><tr><th>DATE</th><th>DESCRIPTION</th><th>CATEGORY</th><th>AMOUNT</th><th>TYPE</th></tr></thead>
-                            <tbody>
-                                ${(recentTxns.length > 0 ? recentTxns : [
-                                    { date: 'Sep 2, 2026', description: 'Petrol', category: 'Transport', amount: 3000, type: 'expense' },
-                                    { date: 'Aug 13, 2026', description: 'Rent', category: 'Rent', amount: 6666, type: 'expense' },
-                                    { date: 'Aug 13, 2026', description: 'Bank Transaction', category: 'Other', amount: 10, type: 'expense' },
-                                    { date: 'Aug 13, 2026', description: 'Bank Transaction', category: 'Other', amount: 32, type: 'expense' },
-                                    { date: 'Aug 12, 2026', description: 'Salary Credit', category: 'Income', amount: 112074, type: 'income' }
-                                ]).map(t => `
-                                    <tr>
-                                        <td>${t.date || 'Today'}</td>
-                                        <td style="font-weight:600;">${t.title || t.description || 'Transaction'}</td>
-                                        <td><span class="badge" style="background:var(--bg-hover); color:var(--text-secondary);">${t.category || 'General'}</span></td>
-                                        <td style="color:${(t.type || 'expense') === 'income' ? 'var(--clr-green, #22c55e)' : 'var(--clr-red, #ef4444)'}; font-weight:700;">
-                                            ${(t.type || 'expense') === 'income' ? '+' : '-'}${this.formatCurrency(t.amount || 0)}
-                                        </td>
-                                        <td style="color:${(t.type || 'expense') === 'income' ? 'var(--clr-green, #22c55e)' : 'var(--clr-red, #ef4444)'};">
-                                            ${(t.type || 'expense') === 'income' ? '↑' : '↓'}
-                                        </td>
-                                    </tr>
-                                `).join('')}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <!-- Goals Progress -->
-                <div class="dash-card">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
-                        <h3 style="margin:0; font-size:0.95rem; font-weight:700; color:var(--text-primary);">Goals Progress</h3>
-                        <a href="#goals" style="font-size:0.78rem; color:var(--accent-color); text-decoration:none; font-weight:600;">View All Goals →</a>
-                    </div>
-                    <div style="display:flex; flex-direction:column; gap:12px;">
-                        <div>
-                            <div style="display:flex; justify-content:space-between; font-size:0.8rem; margin-bottom:4px;">
-                                <span style="font-weight:600; color:var(--text-primary);">🛡️ Emergency Fund</span>
-                                <span style="color:var(--text-muted);">₹65,000 / ₹1,00,000 <strong style="color:var(--clr-green, #22c55e); margin-left:6px;">65%</strong></span>
-                            </div>
-                            <div style="height:6px; background:var(--bg-hover); border-radius:4px; overflow:hidden;"><div style="width:65%; background:var(--clr-green, #22c55e); height:100%;"></div></div>
-                        </div>
-                        <div>
-                            <div style="display:flex; justify-content:space-between; font-size:0.8rem; margin-bottom:4px;">
-                                <span style="font-weight:600; color:var(--text-primary);">🚗 Buy a Car</span>
-                                <span style="color:var(--text-muted);">₹1,20,000 / ₹5,00,000 <strong style="color:var(--clr-blue, #3b82f6); margin-left:6px;">24%</strong></span>
-                            </div>
-                            <div style="height:6px; background:var(--bg-hover); border-radius:4px; overflow:hidden;"><div style="width:24%; background:var(--clr-blue, #3b82f6); height:100%;"></div></div>
-                        </div>
-                        <div>
-                            <div style="display:flex; justify-content:space-between; font-size:0.8rem; margin-bottom:4px;">
-                                <span style="font-weight:600; color:var(--text-primary);">✈️ Europe Trip</span>
-                                <span style="color:var(--text-muted);">₹35,000 / ₹1,50,000 <strong style="color:#a855f7; margin-left:6px;">23%</strong></span>
-                            </div>
-                            <div style="height:6px; background:var(--bg-hover); border-radius:4px; overflow:hidden;"><div style="width:23%; background:#a855f7; height:100%;"></div></div>
-                        </div>
-                        <div>
-                            <div style="display:flex; justify-content:space-between; font-size:0.8rem; margin-bottom:4px;">
-                                <span style="font-weight:600; color:var(--text-primary);">💻 New Laptop</span>
-                                <span style="color:var(--text-muted);">₹45,000 / ₹80,000 <strong style="color:var(--clr-orange, #f59e0b); margin-left:6px;">56%</strong></span>
-                            </div>
-                            <div style="height:6px; background:var(--bg-hover); border-radius:4px; overflow:hidden;"><div style="width:56%; background:var(--clr-orange, #f59e0b); height:100%;"></div></div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Upcoming Obligations -->
-                <div class="dash-card">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
-                        <h3 style="margin:0; font-size:0.95rem; font-weight:700; color:var(--text-primary);">Upcoming Obligations</h3>
-                        <a href="#calendar" style="font-size:0.78rem; color:var(--accent-color); text-decoration:none; font-weight:600;">View Calendar →</a>
-                    </div>
-                    <div style="display:flex; flex-direction:column; gap:10px; font-size:0.8rem;">
-                        <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 10px; background:var(--bg-hover); border-radius:6px;">
-                            <div><strong style="color:var(--text-primary); display:block;">💳 Rent Payment</strong><span style="font-size:0.72rem; color:var(--text-muted);">Due in 5 days</span></div>
-                            <span style="color:var(--clr-red, #ef4444); font-weight:700;">₹6,666.00</span>
-                        </div>
-                        <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 10px; background:var(--bg-hover); border-radius:6px;">
-                            <div><strong style="color:var(--text-primary); display:block;">💳 Car Loan EMI</strong><span style="font-size:0.72rem; color:var(--text-muted);">Due in 8 days</span></div>
-                            <span style="color:var(--clr-red, #ef4444); font-weight:700;">₹12,430.00</span>
-                        </div>
-                        <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 10px; background:var(--bg-hover); border-radius:6px;">
-                            <div><strong style="color:var(--text-primary); display:block;">💳 Credit Card Payment</strong><span style="font-size:0.72rem; color:var(--text-muted);">Due in 12 days</span></div>
-                            <span style="color:var(--clr-red, #ef4444); font-weight:700;">₹8,950.00</span>
-                        </div>
-                        <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 10px; background:var(--bg-hover); border-radius:6px;">
-                            <div><strong style="color:var(--text-primary); display:block;">🛡️ Insurance Premium</strong><span style="font-size:0.72rem; color:var(--text-muted);">Due in 18 days</span></div>
-                            <span style="color:var(--clr-blue, #3b82f6); font-weight:700;">₹2,500.00</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- BOTTOM STICKY AI COPILOT SUGGESTIONS BAR -->
-            <div class="dash-card" style="padding:12px 18px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
-                <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
-                    <span style="font-size:0.82rem; font-weight:700; color:var(--text-primary); display:flex; align-items:center; gap:6px;">
-                        <i class="fa-solid fa-sparkles" style="color:#a855f7;"></i> AI Copilot Suggestions:
-                    </span>
-                    <button class="dash-chip-btn ai-chip-btn-suggest" data-prompt="How can I reduce food expenses?">How can I reduce food expenses?</button>
-                    <button class="dash-chip-btn ai-chip-btn-suggest" data-prompt="Can I afford a ₹50,000 purchase?">Can I afford a ₹50,000 purchase?</button>
-                    <button class="dash-chip-btn ai-chip-btn-suggest" data-prompt="Create a 30-day financial plan">Create a 30-day financial plan</button>
-                    <button class="dash-chip-btn ai-chip-btn-suggest" data-prompt="Analyze my debt strategy">Analyze my debt strategy</button>
-                    <button class="dash-chip-btn ai-chip-btn-suggest" data-prompt="How to reach ₹1 crore wealth?">How to reach ₹1 crore wealth?</button>
-                </div>
-                <a href="#ai-copilot" class="btn btn-primary" style="background:linear-gradient(135deg, #a855f7 0%, #2383e2 100%); border:none; padding:8px 14px; font-size:0.8rem; border-radius:50%; width:36px; height:36px; display:flex; align-items:center; justify-content:center; text-decoration:none;"><i class="fa-solid fa-wand-magic-sparkles"></i></a>
-            </div>
-        `;
-
-        // Attach listeners for interactive buttons
-        document.querySelectorAll('.ai-chip-btn-suggest').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const prompt = e.currentTarget.dataset.prompt || e.currentTarget.innerText.trim();
-                if (!prompt) return;
-                window.location.hash = '#ai-copilot';
-                setTimeout(() => {
-                    const input = document.getElementById('copilot-input');
-                    const sendBtn = document.getElementById('copilot-send-btn');
-                    if (input && sendBtn) {
-                        input.value = prompt;
-                        sendBtn.click();
-                    }
-                }, 200);
-            });
-        });
-
-        document.getElementById('banner-quick-add')?.addEventListener('click', () => {
-            document.getElementById('btn-quick-add')?.click();
-        });
-
-        document.getElementById('banner-upload-stmt')?.addEventListener('click', () => {
-            window.location.hash = '#analysis';
-        });
-
-        document.getElementById('ai-explain-hero-btn')?.addEventListener('click', () => {
-            showToast('AI Analysis: Food spending accounts for 18.6% of monthly expenses. Savings rate target: 20%+');
-        });
-
-        document.getElementById('ai-create-action-plan')?.addEventListener('click', () => {
-            window.location.hash = '#ai-copilot';
-            setTimeout(() => {
-                const input = document.getElementById('copilot-input');
-                const sendBtn = document.getElementById('copilot-send-btn');
-                if (input && sendBtn) {
-                    input.value = 'Create a 30-day action plan to reduce expenses and build emergency fund';
-                    sendBtn.click();
-                }
-            }, 200);
-        });
-
-        document.getElementById('ai-analyze-finances-btn')?.addEventListener('click', async () => {
-            showToast('Running AI Financial Diagnosis...');
-            try {
-                const token = localStorage.getItem('auth_token') || '';
-                const headers = { 'Content-Type': 'application/json', 'X-User-UID': 'demo_user' };
-                if (token) headers['Authorization'] = `Bearer ${token}`;
-
-                const res = await fetch('/api/v1/ai/diagnosis', { method: 'POST', headers });
-                const data = await res.json();
-
-                if (data.success && data.data) {
-                    const diag = data.data;
-                    const stage = diag.lifeStage || { stageNumber: 3, stageName: 'Financial Foundation', description: 'Surplus cash flow & baseline reserves established.' };
-                    
-                    showCustomModal({
-                        title: `Financial Diagnosis: Stage ${stage.stageNumber} - ${stage.stageName}`,
-                        icon: 'fa-solid fa-user-doctor',
-                        closeLabel: 'Close Diagnosis',
-                        bodyHtml: `
-                            <div style="padding: 10px 0; max-height: 480px; overflow-y: auto;">
-                                <div style="background: linear-gradient(135deg, rgba(168,85,247,0.1) 0%, rgba(35,131,226,0.1) 100%); padding: 16px; border-radius: 8px; border: 1px solid rgba(168,85,247,0.3); margin-bottom: 16px;">
-                                    <h4 style="margin:0 0 6px 0; color: #a855f7;"><i class="fa-solid fa-award"></i> ${stage.stageName} (Stage ${stage.stageNumber}/7)</h4>
-                                    <p style="margin:0; font-size: 0.88rem; color: var(--text-secondary); line-height: 1.5;">${stage.description}</p>
-                                    <div style="margin-top: 8px; font-size: 0.82rem; color: var(--clr-green);"><strong>Next Milestone:</strong> ${stage.nextMilestone || 'Achieve 20%+ savings rate'}</div>
-                                </div>
-                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
-                                    <div style="background: var(--bg-hover); padding: 12px; border-radius: 6px;">
-                                        <h5 style="margin:0 0 6px 0; color: var(--clr-green);"><i class="fa-solid fa-circle-check"></i> Top Strengths</h5>
-                                        <ul style="margin:0; padding-left: 18px; font-size: 0.82rem; color: var(--text-secondary);">
-                                            ${(diag.topStrengths || ['Positive cash flow', 'Managed EMIs']).map(s => `<li>${s}</li>`).join('')}
-                                        </ul>
-                                    </div>
-                                    <div style="background: var(--bg-hover); padding: 12px; border-radius: 6px;">
-                                        <h5 style="margin:0 0 6px 0; color: var(--clr-red);"><i class="fa-solid fa-triangle-exclamation"></i> Top Problems & Risks</h5>
-                                        <ul style="margin:0; padding-left: 18px; font-size: 0.82rem; color: var(--text-secondary);">
-                                            ${(diag.topProblems || ['High dining expenses']).map(p => `<li>${p}</li>`).join('')}
-                                        </ul>
-                                    </div>
-                                </div>
-                                <div style="background: var(--bg-hover); padding: 12px; border-radius: 6px; margin-bottom: 12px;">
-                                    <h5 style="margin:0 0 6px 0; color: var(--accent-color);"><i class="fa-solid fa-calendar-check"></i> 30-Day Action Roadmap</h5>
-                                    <ul style="margin:0; padding-left: 18px; font-size: 0.84rem; color: var(--text-primary);">
-                                        ${(diag.plan30Day || ['Audit dining expenses', 'Transfer 20% to savings on payday']).map(a => `<li>${a}</li>`).join('')}
-                                    </ul>
-                                </div>
-                            </div>
-                        `
-                    });
-                }
-            } catch (err) {
-                showToast('Diagnosis rendered using local ledger status.');
-            }
-        });
-
-        document.getElementById('ai-cmd-btn')?.addEventListener('click', () => {
-            const input = document.getElementById('ai-cmd-input');
-            if (!input || !input.value.trim()) return;
-            const q = input.value.trim();
-            input.value = '';
-            showToast(`AI Processing Query: "${q}"`);
-            window.location.hash = '#ai-copilot';
-            setTimeout(() => {
-                const chatInput = document.getElementById('copilot-input');
-                const sendBtn = document.getElementById('copilot-send-btn');
-                if (chatInput && sendBtn) {
-                    chatInput.value = q;
-                    sendBtn.click();
-                }
-            }, 200);
-        });
-
-        document.getElementById('ai-cmd-input')?.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-                document.getElementById('ai-cmd-btn')?.click();
-            }
-        });
-    }
-
-    renderMoneyLedgerView() {
-        const container = document.getElementById('view-money');
         if (!container) return;
 
         const allTxns = this.getTransactions();
         const allLoans = this.getLoans();
         const persons = this.getPersons();
         
-        let txns = allTxns;
-        let loans = allLoans;
+        const personSet = new Set(persons.map(p => p.toLowerCase().trim()));
+        let txns = [];
+        let loans = [];
 
         if (this.currentPersonFilter !== 'All') {
             const targetFilter = this.currentPersonFilter.toLowerCase().trim();
             txns = allTxns.filter(t => t.person && t.person.toLowerCase().trim() === targetFilter);
             loans = allLoans.filter(l => l.person && l.person.toLowerCase().trim() === targetFilter);
+        } else if (persons.length > 0) {
+            // Under 'All Members', calculate ONLY items belonging to active members in the workspace
+            txns = allTxns.filter(t => t.person && personSet.has(t.person.toLowerCase().trim()));
+            loans = allLoans.filter(l => l.person && personSet.has(l.person.toLowerCase().trim()));
+        } else {
+            // When no custom members exist, calculate zero
+            txns = [];
+            loans = [];
         }
 
         const income = txns.filter(t => t.type === 'income').reduce((s, t) => s + (parseFloat(t.amount) || 0), 0);
         const expenses = txns.filter(t => t.type === 'expense' || !t.type).reduce((s, t) => s + (parseFloat(t.amount) || 0), 0);
         const balance = income - expenses;
+        const totalDebt = loans.reduce((s, l) => s + (parseFloat(l.amountLeftToPay) || 0), 0);
+        const totalMonthlyEMI = loans.reduce((s, l) => s + (parseFloat(l.emiPerMonth) || 0), 0);
+        const totalInterest = txns.reduce((s, t) => s + (parseFloat(t.interest) || 0), 0);
 
-        const formatTxnDate = (dStr) => {
-            if (!dStr) return '';
-            try {
-                const d = new Date(dStr);
-                if (isNaN(d.getTime())) return dStr;
-                return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
-            } catch (e) {
-                return dStr;
+        // Categories Visualization
+        const categories = {};
+        const catColors = {
+            'Rent': '#e53935', 'Food': '#f4511e', 'Transport': '#2383e2', 'Entertainment': '#8e24aa',
+            'Bills': '#fb8c00', 'Salary': '#43a047', 'Freelance': '#00897b',
+            'Shopping': '#ff7043', 'Health': '#26a69a', 'EMI': '#d32f2f', 
+            'Credit Card': '#ab47bc', 'Other': '#78909c'
+        };
+        txns.forEach(t => {
+            if (t.type === 'expense' || !t.type) {
+                categories[t.category || 'Other'] = (categories[t.category || 'Other'] || 0) + (parseFloat(t.amount) || 0);
             }
+        });
+        
+        let catHTML = '';
+        if (expenses > 0) {
+            catHTML = Object.entries(categories)
+                .filter(([cat, val]) => val > 0)
+                .sort((a, b) => b[1] - a[1]).map(([cat, val]) => {
+                const pct = Math.round((val / expenses) * 100);
+                const color = catColors[cat] || '#78909c';
+                return `
+                    <div class="cat-bar-wrap">
+                        <div class="cat-bar-header">
+                            <span class="cat-name">${cat}</span>
+                            <span class="cat-val">${this.formatCurrency(val)} (${pct}%)</span>
+                        </div>
+                        <div class="cat-bar"><div class="cat-bar-fill" style="width:${pct}%;background:${color}"></div></div>
+                    </div>
+                `;
+            }).join('');
+        } else {
+            catHTML = '<div class="fin-empty">No expenses to visualize.</div>';
+        }
+
+        let loansHTML = '';
+        if (loans.length === 0) {
+            loansHTML = '<div class="fin-empty">No active loans.</div>';
+        } else {
+            loansHTML = loans.map(l => {
+                const paid = l.amountSanctioned - l.amountLeftToPay;
+                const pct = Math.min(100, Math.max(0, (paid / l.amountSanctioned) * 100));
+                return `
+                    <div class="loan-card card" style="margin-bottom: var(--spacing-4);">
+                        <div class="loan-header">
+                            <span class="loan-title"><i class="fa-solid fa-building-columns" style="color:var(--clr-orange); margin-right:8px;"></i>${l.title} 
+                                ${l.bank ? `<span class="person-tag interest-tag"><i class="fa-solid fa-building"></i> ${l.bank}</span>` : ''}
+                                ${this.currentPersonFilter === 'All' && l.person ? `<span class="person-tag"><i class="fa-solid fa-user"></i> ${l.person}</span>` : ''}
+                            </span>
+                            <div style="display:flex; gap:8px;">
+                                <button class="fin-edit-loan btn btn-secondary" data-id="${l.id}" title="Edit Loan" style="padding:4px 8px; font-size:0.8rem; background:transparent; border-color:var(--border-light); color:var(--text-muted);"><i class="fa-solid fa-pen"></i></button>
+                                <button class="fin-del-loan btn btn-secondary" data-id="${l.id}" style="padding:4px 8px; font-size:0.8rem;"><i class="fa-solid fa-check"></i> Close Loan</button>
+                            </div>
+                        </div>
+                        <div class="loan-stats">
+                            <div class="loan-stat"><span>Sanctioned</span><strong>${this.formatCurrency(l.amountSanctioned)}</strong></div>
+                            <div class="loan-stat"><span>EMI / Mo</span><strong>${this.formatCurrency(l.emiPerMonth)}</strong></div>
+                            <div class="loan-stat"><span>Interest Rate</span><strong>${l.interestRate}%</strong></div>
+                            <div class="loan-stat"><span>Left to Pay</span><strong style="color:var(--clr-red)">${this.formatCurrency(l.amountLeftToPay)}</strong></div>
+                        </div>
+                        <div class="loan-progress"><div class="loan-progress-fill" style="width: ${pct}%"></div></div>
+                        <div style="font-size:0.75rem; color:var(--text-muted); text-align:right; margin-top:4px;">${pct.toFixed(1)}% Repaid</div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Transaction table
+        const formatTxnDate = (dateStr) => {
+            if (!dateStr) return '';
+            const raw = String(dateStr).trim();
+            const cleanStr = raw.includes('T') ? raw.split('T')[0] : raw;
+            const d = new Date(cleanStr + 'T00:00:00');
+            if (isNaN(d.getTime())) return raw;
+            return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
         };
 
         const sorted = [...txns].sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
@@ -786,756 +380,1205 @@ export class FinanceManager {
         if (sorted.length === 0) {
             tableHTML = '<div class="fin-empty">No transactions logged yet.</div>';
         } else {
+            const renderRows = (groupTxns, title) => {
+                if (!groupTxns || groupTxns.length === 0) return '';
+                return `
+                    <tbody>
+                        <tr class="fin-group-header"><td colspan="6" style="background: rgba(255,255,255,0.03); font-weight: 600; padding: 10px 16px; color: var(--text-primary); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em;">${title}</td></tr>
+                        ${groupTxns.map(t => {
+                            const itemTitle = t.title || t.description || 'Untitled Transaction';
+                            return `
+                            <tr>
+                                <td data-label="Type"><span class="fin-badge ${t.type || 'expense'}">${(t.type || 'expense') === 'income' ? '↑ Income' : '↓ Expense'}</span></td>
+                                <td data-label="Title">
+                                    <div style="margin-bottom: 4px; font-weight: 600; color: var(--text-primary);">${itemTitle}</div>
+                                    <div>
+                                        ${this.currentPersonFilter === 'All' && t.person ? `<span class="person-tag"><i class="fa-solid fa-user"></i> ${t.person}</span>` : ''}
+                                        ${t.sourceStatementId || t.source === 'BANK_STATEMENT' ? `<span class="person-tag" style="background:rgba(35,131,226,0.12); color:var(--clr-blue); border:1px solid rgba(35,131,226,0.3);"><i class="fa-solid fa-file-invoice-dollar"></i> Statement</span>` : `<span class="person-tag"><i class="fa-solid fa-pen"></i> Manual</span>`}
+                                        ${t.interest > 0 ? `<span class="person-tag interest-tag">Includes ${this.formatCurrency(t.interest)} Interest</span>` : ''}
+                                    </div>
+                                </td>
+                                <td data-label="Category">${t.category || 'General'}</td>
+                                <td data-label="Amount" class="fin-amount ${t.type || 'expense'}">${(t.type || 'expense') === 'income' ? '+' : '-'}${this.formatCurrency(t.amount || 0)}</td>
+                                <td data-label="Date">${formatTxnDate(t.date)}</td>
+                                <td data-label="Actions" style="text-align: right;">
+                                    <button class="fin-edit" data-id="${t.id}" style="background:none; border:none; color:var(--text-muted); cursor:pointer; margin-right:8px; padding: 4px;" title="Edit Transaction"><i class="fa-solid fa-pen"></i></button>
+                                    <button class="fin-del" data-id="${t.id}" style="padding: 4px;" title="Delete Transaction"><i class="fa-solid fa-trash"></i></button>
+                                </td>
+                            </tr>
+                        `;
+                        }).join('')}
+                    </tbody>
+                `;
+            };
+
+            const uniquePersons = [...new Set(sorted.map(t => t.person).filter(p => p && p !== 'Main'))].sort();
+            
+            let tbodyHTML = '';
+            
+            const generalTxns = sorted.filter(t => !t.person || t.person === 'Main');
+            if (generalTxns.length > 0) {
+                if (uniquePersons.length > 0 && this.currentPersonFilter === 'All') {
+                    tbodyHTML += `
+                        <tbody>
+                            <tr class="fin-person-header">
+                                <td colspan="6" style="background: var(--bg-sidebar); padding: 16px 16px 8px 16px; border-bottom: 2px solid var(--border-color);">
+                                    <h3 style="margin: 0; color: var(--accent-color); font-size: 1.1rem; font-weight: 700;"><i class="fa-solid fa-user"></i> Personal / General</h3>
+                                </td>
+                            </tr>
+                        </tbody>
+                    `;
+                }
+                const incomes = generalTxns.filter(t => t.type === 'income');
+                const loans = generalTxns.filter(t => (t.type === 'expense' || !t.type) && (t.category === 'EMI' || t.category === 'Credit Card' || (t.title || t.description || '').toLowerCase().includes('loan')));
+                const others = generalTxns.filter(t => (t.type === 'expense' || !t.type) && !(t.category === 'EMI' || t.category === 'Credit Card' || (t.title || t.description || '').toLowerCase().includes('loan')));
+
+                tbodyHTML += renderRows(incomes, 'Income');
+                tbodyHTML += renderRows(loans, 'Expenses: Loans & Cards');
+                tbodyHTML += renderRows(others, 'Expenses: Other');
+            }
+
+            uniquePersons.forEach(person => {
+                const pTxns = sorted.filter(t => t.person === person);
+                if (pTxns.length === 0) return;
+                
+                if (this.currentPersonFilter === 'All') {
+                    tbodyHTML += `
+                        <tbody>
+                            <tr class="fin-person-header">
+                                <td colspan="6" style="background: var(--bg-sidebar); padding: 16px 16px 8px 16px; border-bottom: 2px solid var(--border-color);">
+                                    <h3 style="margin: 0; color: var(--accent-color); font-size: 1.1rem; font-weight: 700;"><i class="fa-solid fa-user"></i> ${person}</h3>
+                                </td>
+                            </tr>
+                        </tbody>
+                    `;
+                }
+
+                const incomes = pTxns.filter(t => t.type === 'income');
+                const loans = pTxns.filter(t => (t.type === 'expense' || !t.type) && (t.category === 'EMI' || t.category === 'Credit Card' || (t.title || t.description || '').toLowerCase().includes('loan')));
+                const others = pTxns.filter(t => (t.type === 'expense' || !t.type) && !(t.category === 'EMI' || t.category === 'Credit Card' || (t.title || t.description || '').toLowerCase().includes('loan')));
+
+                tbodyHTML += renderRows(incomes, 'Income');
+                tbodyHTML += renderRows(loans, 'Expenses: Loans & Cards');
+                tbodyHTML += renderRows(others, 'Expenses: Other');
+            });
+
+            if (!tbodyHTML) {
+                tbodyHTML = `<tbody><tr><td colspan="6" style="text-align:center; padding: 24px; color: var(--text-muted);">No entries found for this selection.</td></tr></tbody>`;
+            }
+
             tableHTML = `
                 <div class="table-responsive" style="width: 100%; overflow-x: auto;">
                     <table class="data-table" style="width: 100%;">
-                        <thead>
-                            <tr>
-                                <th>Type</th><th>Title</th><th>Category</th><th>Amount</th><th>Date</th><th style="text-align:right;">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${sorted.map(t => {
-                                const itemTitle = t.title || t.description || 'Untitled Transaction';
-                                return `
-                                    <tr>
-                                        <td data-label="Type"><span class="fin-badge ${t.type || 'expense'}">${(t.type || 'expense') === 'income' ? '↑ Income' : '↓ Expense'}</span></td>
-                                        <td data-label="Title">
-                                            <div style="margin-bottom: 4px; font-weight: 600; color: var(--text-primary);">${itemTitle}</div>
-                                            <div>
-                                                ${this.currentPersonFilter === 'All' && t.person ? `<span class="person-tag"><i class="fa-solid fa-user"></i> ${t.person}</span>` : ''}
-                                                ${t.sourceStatementId || t.source === 'BANK_STATEMENT' ? `<span class="person-tag" style="background:rgba(35,131,226,0.12); color:var(--clr-blue); border:1px solid rgba(35,131,226,0.3);"><i class="fa-solid fa-file-invoice-dollar"></i> Statement</span>` : `<span class="person-tag"><i class="fa-solid fa-pen"></i> Manual</span>`}
-                                            </div>
-                                        </td>
-                                        <td data-label="Category"><span class="badge">${t.category || 'General'}</span></td>
-                                        <td data-label="Amount" class="fin-amount ${t.type || 'expense'}">${(t.type || 'expense') === 'income' ? '+' : '-'}${this.formatCurrency(t.amount || 0)}</td>
-                                        <td data-label="Date">${formatTxnDate(t.date)}</td>
-                                        <td data-label="Actions" style="text-align: right;">
-                                            <button class="fin-del" data-id="${t.id}" style="padding: 4px; background:none; border:none; color:var(--text-muted); cursor:pointer;" title="Delete Transaction"><i class="fa-solid fa-trash"></i></button>
-                                        </td>
-                                    </tr>
-                                `;
-                            }).join('')}
-                        </tbody>
+                        <thead><tr>
+                            <th>Type</th><th>Title</th><th>Category</th><th>Amount</th><th>Date</th><th style="text-align:right;">Actions</th>
+                        </tr></thead>
+                        ${tbodyHTML}
                     </table>
                 </div>
             `;
         }
+        // Form Fields HTML (Dynamic based on entry type)
+        let formHTML = '';
+        const loanOptionsHTML = loans.length > 0 
+            ? `<optgroup label="Active Loans">${loans.map(l => `<option value="${l.id}">${l.title}</option>`).join('')}</optgroup>`
+            : '';
 
-        container.innerHTML = `
-            <div class="view-header">
-                <div>
-                    <h1><i class="fa-solid fa-receipt" style="color:var(--clr-green);"></i> Transactions & Money Ledger</h1>
-                    <p class="subtitle text-muted">Complete Searchable Ledger & Bank Statement Ingestion</p>
+        // Overview HTML Generation
+        const savingsRate = income > 0 ? ((balance / income) * 100).toFixed(1) : 0;
+        const recentTxns = [...txns].sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0)).slice(0, 6);
+        const recentTxnsHTML = recentTxns.length === 0 ? '<div class="fin-empty">No transactions found.</div>' : recentTxns.map(t => {
+            const isIncome = t.type === 'income';
+            const icon = isIncome ? 'fa-arrow-down' : 'fa-arrow-up';
+            const color = isIncome ? 'var(--clr-green, #43a047)' : 'var(--clr-red, #e53935)';
+            const bg = isIncome ? 'rgba(67, 160, 71, 0.1)' : 'rgba(229, 57, 53, 0.1)';
+            return `
+                <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--border-color);">
+                    <div style="display:flex; align-items:center; gap:12px;">
+                        <div style="width:40px; height:40px; border-radius:50%; background:${bg}; color:${color}; display:flex; align-items:center; justify-content:center;">
+                            <i class="fa-solid ${icon}"></i>
+                        </div>
+                        <div>
+                            <div style="font-weight:600; color:var(--text-primary); font-size:0.95rem;">${t.title || 'Untitled'}</div>
+                            <div style="font-size:0.8rem; color:var(--text-muted);">${formatTxnDate(t.date)} • ${t.category || 'General'}</div>
+                        </div>
+                    </div>
+                    <div style="font-weight:600; color:${color};">${isIncome ? '+' : '-'}${this.formatCurrency(t.amount)}</div>
                 </div>
-                <div class="topbar-actions">
-                    <button class="btn btn-secondary" id="ledger-upload-statement-btn"><i class="fa-solid fa-file-arrow-up"></i> Upload Bank Statement</button>
-                    <button class="btn btn-primary" id="ledger-add-entry-btn"><i class="fa-solid fa-plus"></i> Add Transaction</button>
-                </div>
-            </div>
+            `;
+        }).join('');
 
-            <div class="fin-kpi-grid" style="margin-bottom: 20px;">
-                <div class="fin-kpi">
-                    <div class="fin-kpi-header"><h4>Total Income</h4><div class="fin-kpi-icon green"><i class="fa-solid fa-arrow-up"></i></div></div>
-                    <div class="fin-kpi-data"><span class="value positive">${this.formatCurrency(income)}</span></div>
-                </div>
-                <div class="fin-kpi">
-                    <div class="fin-kpi-header"><h4>Total Expenses</h4><div class="fin-kpi-icon red"><i class="fa-solid fa-arrow-down"></i></div></div>
-                    <div class="fin-kpi-data"><span class="value negative">${this.formatCurrency(expenses)}</span></div>
-                </div>
-                <div class="fin-kpi">
-                    <div class="fin-kpi-header"><h4>Net Cash Surplus</h4><div class="fin-kpi-icon blue"><i class="fa-solid fa-wallet"></i></div></div>
-                    <div class="fin-kpi-data"><span class="value ${balance >= 0 ? 'positive' : 'negative'}">${this.formatCurrency(balance)}</span></div>
-                </div>
-            </div>
-
-            <div class="card" style="padding: 20px;">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:10px;">
-                    <h2><i class="fa-solid fa-list" style="color:var(--accent-color);"></i> Ledger Entries (${sorted.length})</h2>
-                </div>
-                ${tableHTML}
-            </div>
-        `;
-
-        // Ledger Action Listeners
-        document.getElementById('ledger-add-entry-btn')?.addEventListener('click', async () => {
-            const res = await showFormModal({
-                title: 'Add Financial Transaction',
-                icon: 'fa-solid fa-plus-circle',
-                submitLabel: 'Record Entry',
-                fields: [
-                    { key: 'type', label: 'Type', type: 'dropdown', value: 'expense', options: [{ value: 'expense', label: 'Expense (-)' }, { value: 'income', label: 'Income (+)' }] },
-                    { key: 'title', label: 'Description', type: 'text', placeholder: 'e.g. Swiggy Order or Monthly Salary', required: true },
-                    { key: 'amount', label: 'Amount (₹)', type: 'amount', placeholder: 'e.g. 1500', required: true },
-                    { key: 'category', label: 'Category', type: 'dropdown', value: 'General', options: [
-                        { value: 'Salary', label: 'Salary' }, { value: 'Rent', label: 'Rent' }, { value: 'Food', label: 'Food & Dining' },
-                        { value: 'Bills', label: 'Groceries / Bills' }, { value: 'Utilities', label: 'Utilities' }, { value: 'EMI', label: 'EMI Loan' },
-                        { value: 'General', label: 'General' }
-                    ]}
-                ]
-            });
-
-            if (res && res.title && res.amount) {
-                const txs = this.getTransactions();
-                txs.unshift({
-                    id: `tx_${Date.now()}`,
-                    type: res.type || 'expense',
-                    title: res.title,
-                    amount: parseFloat(res.amount) || 0,
-                    category: res.category || 'General',
-                    date: new Date().toISOString().split('T')[0]
-                });
-                this.saveTransactions(txs);
-                showToast('Transaction added to ledger!');
-                this.renderMoneyLedgerView();
-            }
-        });
-
-        document.getElementById('ledger-upload-statement-btn')?.addEventListener('click', () => {
-            showToast('Opening Statement Analyzer...');
-            this.init('analysis');
-        });
-
-        container.querySelectorAll('.fin-del').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const id = btn.dataset.id;
-                let txs = this.getTransactions();
-                txs = txs.filter(t => t.id !== id);
-                this.saveTransactions(txs);
-                showToast('Transaction removed.');
-                this.renderMoneyLedgerView();
-            });
-        });
-    }
-
-    renderAnalysisView() {
-        const container = document.getElementById('view-analysis');
-        if (!container) return;
-
-        const txns = this.getTransactions();
-        const income = txns.filter(t => t.type === 'income').reduce((s, t) => s + (parseFloat(t.amount) || 0), 0);
-        const expenses = txns.filter(t => t.type === 'expense' || !t.type).reduce((s, t) => s + (parseFloat(t.amount) || 0), 0);
-        const savingsRate = income > 0 ? Math.max(0, Math.round(((income - expenses) / income) * 100)) : 0;
+        const aiEngine = new AIFinancialEngine();
+        const rawTxns = this.storage.get('transactions') || [];
+        const userTxns = rawTxns.filter(t => this.currentPersonFilter === 'All' || (t.person || 'All') === this.currentPersonFilter);
         
-        let score = 50;
-        if (savingsRate >= 30) score += 30;
-        else if (savingsRate >= 20) score += 20;
-        else if (savingsRate >= 10) score += 10;
-        if (income > expenses) score += 15;
-        score = Math.min(100, Math.max(0, score));
-
-        let rating = score >= 80 ? 'EXCELLENT' : (score >= 65 ? 'GOOD' : 'FAIR');
-
-        container.innerHTML = `
-            <div class="view-header">
-                <div>
-                    <h1><i class="fa-solid fa-chart-line" style="color:var(--accent-color);"></i> Analysis & Financial Health</h1>
-                    <p class="subtitle text-muted">Deterministic 0–100 Financial Health Scoring & Expense Distribution</p>
-                </div>
-            </div>
-            <div class="dashboard-grid" style="grid-template-columns: 1fr 2fr; gap: 20px; margin-top: 16px;">
-                <div class="card" style="text-align: center; padding: 32px 20px;">
-                    <div style="font-size: 0.8rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; letter-spacing: 0.05em;">Financial Health Score</div>
-                    <div style="font-size: 3.5rem; font-weight: 800; color: var(--accent-color); margin: 16px 0;">${score}<span style="font-size: 1.2rem; color: var(--text-muted);">/100</span></div>
-                    <span class="fin-badge income" style="font-size: 0.9rem; padding: 6px 16px;">${rating}</span>
-                    <p style="margin-top: 20px; font-size: 0.88rem; color: var(--text-secondary); line-height: 1.5;">
-                        Your score is driven by a savings rate of <strong>${savingsRate}%</strong> and positive net cash flow of <strong>${this.formatCurrency(income - expenses)}</strong>.
-                    </p>
-                </div>
-                <div class="card" style="padding: 24px;">
-                    <h2><i class="fa-solid fa-layer-group" style="color:var(--clr-blue);"></i> Score Component Breakdown</h2>
-                    <div style="display:flex; flex-direction:column; gap: 16px; margin-top: 20px;">
-                        <div>
-                            <div style="display:flex; justify-content:space-between; font-size: 0.9rem; font-weight: 600;"><span>Savings Rate (20% Weight)</span><span>${savingsRate}% (Score: ${Math.min(20, Math.round(savingsRate * 0.6))}/20)</span></div>
-                            <div class="cat-bar" style="margin-top:6px;"><div class="cat-bar-fill" style="width: ${Math.min(100, savingsRate * 3)}%; background: var(--clr-green);"></div></div>
-                        </div>
-                        <div>
-                            <div style="display:flex; justify-content:space-between; font-size: 0.9rem; font-weight: 600;"><span>Cash Flow Positivity (15% Weight)</span><span>${income >= expenses ? 'Positive (+15)' : 'Negative (+2)'}</span></div>
-                            <div class="cat-bar" style="margin-top:6px;"><div class="cat-bar-fill" style="width: ${income >= expenses ? 100 : 20}%; background: var(--clr-blue);"></div></div>
-                        </div>
-                        <div>
-                            <div style="display:flex; justify-content:space-between; font-size: 0.9rem; font-weight: 600;"><span>Emergency Fund (20% Weight)</span><span>3+ Months Covered (+18)</span></div>
-                            <div class="cat-bar" style="margin-top:6px;"><div class="cat-bar-fill" style="width: 90%; background: var(--accent-color);"></div></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
-    }
-
-    renderDebtView() {
-        const container = document.getElementById('view-debt');
-        if (!container) return;
-
-        const loans = this.getLoans();
-        const rawDebt = loans.reduce((s, l) => s + (parseFloat(l.amountLeftToPay) || 0), 0);
-        const rawEMI = loans.reduce((s, l) => s + (parseFloat(l.emiPerMonth) || 0), 0);
-        
-        const totalDebt = rawDebt > 0 ? rawDebt : 150000;
-        const totalEMI = rawEMI > 0 ? rawEMI : 6500;
-        const activeCount = loans.length > 0 ? loans.length : 1;
-
-        container.innerHTML = `
-            <!-- HEADER BAR -->
-            <div class="view-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px; flex-wrap:wrap; gap:12px;">
-                <div>
-                    <h1 style="font-size: 1.8rem; font-weight: 700; display: flex; align-items: center; gap: 10px; margin: 0;">
-                        <i class="fa-solid fa-hand-holding-dollar" style="color:var(--clr-orange, #f59e0b);"></i> Debt Intelligence & Debt-Free Simulator
-                    </h1>
-                    <p class="subtitle text-muted" style="margin-top: 4px; font-size: 0.88rem;">Avalanche & Snowball Payoff Strategies with Interactive Simulator</p>
-                </div>
-                <button class="btn btn-secondary" id="add-loan-btn" style="font-size:0.82rem; padding:8px 14px;"><i class="fa-solid fa-plus" style="margin-right:6px;"></i> Add Loan Account</button>
-            </div>
-
-            <!-- 3 METRIC CARDS -->
-            <div class="dashboard-grid" style="grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px;">
-                <div class="dash-card" style="display:flex; align-items:center; gap:16px;">
-                    <div style="width:46px; height:46px; border-radius:10px; background:rgba(239,68,68,0.15); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
-                        <i class="fa-solid fa-building-columns" style="color:var(--clr-red, #ef4444); font-size:1.3rem;"></i>
-                    </div>
-                    <div style="flex:1; min-width:0;">
-                        <span class="dash-kpi-title" style="display:block;">Total Outstanding Debt</span>
-                        <div class="dash-kpi-val" style="color:var(--clr-red, #ef4444); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${this.formatCurrency(totalDebt)}</div>
-                        <span style="font-size:0.75rem; color:var(--text-muted);">Active principal liability</span>
-                    </div>
-                </div>
-
-                <div class="dash-card" style="display:flex; align-items:center; gap:16px;">
-                    <div style="width:46px; height:46px; border-radius:10px; background:rgba(245,158,11,0.15); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
-                        <i class="fa-solid fa-calendar-check" style="color:var(--clr-orange, #f59e0b); font-size:1.3rem;"></i>
-                    </div>
-                    <div style="flex:1; min-width:0;">
-                        <span class="dash-kpi-title" style="display:block;">Total Monthly EMI</span>
-                        <div class="dash-kpi-val" style="color:var(--clr-orange, #f59e0b); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${this.formatCurrency(totalEMI)}</div>
-                        <span style="font-size:0.75rem; color:var(--text-muted);">Required monthly commitment</span>
-                    </div>
-                </div>
-
-                <div class="dash-card" style="display:flex; align-items:center; gap:16px;">
-                    <div style="width:46px; height:46px; border-radius:10px; background:rgba(59,130,246,0.15); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
-                        <i class="fa-solid fa-file-contract" style="color:var(--clr-blue, #3b82f6); font-size:1.3rem;"></i>
-                    </div>
-                    <div style="flex:1; min-width:0;">
-                        <span class="dash-kpi-title" style="display:block;">Active Loans</span>
-                        <div class="dash-kpi-val">${activeCount} Accounts</div>
-                        <span style="font-size:0.75rem; color:var(--text-muted);">Managed credit facilities</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- INTERACTIVE DEBT-FREE SIMULATOR CARD -->
-            <div class="dash-card" style="padding: 24px; border-left: 4px solid var(--accent-color, #7c3aed);">
-                <div style="display:flex; align-items:center; gap:10px; margin-bottom:6px;">
-                    <i class="fa-solid fa-calculator" style="color:var(--accent-color, #7c3aed); font-size:1.2rem;"></i>
-                    <h2 style="margin:0; font-size:1.15rem; font-weight:700; color:var(--text-primary);">Interactive Debt-Free Simulator</h2>
-                </div>
-                <p class="subtitle text-muted" style="margin-bottom: 18px; font-size:0.85rem;">See how adding an extra monthly payment reduces interest and accelerates your debt-free date.</p>
-                
-                <div class="an-grid-2" style="gap: 24px; align-items:start;">
-                    <div style="display:flex; flex-direction:column; gap:14px;">
-                        <div>
-                            <label style="font-weight:600; font-size:0.84rem; display:block; margin-bottom:6px; color:var(--text-primary);">Extra Monthly Payment (₹)</label>
-                            <input type="number" id="sim-extra-payment" class="fin-form-input" value="5000" step="1000" style="padding:10px 14px; font-size:0.9rem;" placeholder="e.g. 5000">
-                        </div>
-                        <button class="btn btn-primary" id="btn-run-simulation" style="font-weight:600; padding:10px 20px; font-size:0.88rem; display:flex; align-items:center; justify-content:center; gap:8px;"><i class="fa-solid fa-bolt"></i> Run Simulation</button>
-                    </div>
-
-                    <div id="sim-result-box" style="background:var(--bg-hover); padding:18px; border-radius:10px; border:1px solid var(--border-color);">
-                        <h4 style="margin:0 0 10px 0; color:var(--clr-green, #22c55e); font-size:0.98rem; font-weight:700; display:flex; align-items:center; gap:6px;">
-                            <i class="fa-solid fa-piggy-bank"></i> Optimization Projection
-                        </h4>
-                        <p style="font-size:0.88rem; color:var(--text-primary); line-height:1.5; margin:0 0 12px 0;">
-                            Adding <strong>₹5,000/mo</strong> extra saves an estimated <strong>₹48,500</strong> in interest and makes you debt-free <strong>14 months earlier</strong>!
-                        </p>
-                        <div style="background:var(--bg-card); padding:10px 12px; border-radius:8px; border:1px solid var(--border-color); font-size:0.8rem; color:var(--text-muted); display:flex; justify-content:space-between; align-items:center;">
-                            <span>Standard Payoff: <strong>24 months</strong></span>
-                            <span style="color:var(--clr-green, #22c55e); font-weight:700;">Accelerated: 10 months</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
-
-        const runSimulation = async () => {
-            const extraInput = document.getElementById('sim-extra-payment');
-            const extra = parseFloat(extraInput?.value) || 0;
-            const box = document.getElementById('sim-result-box');
-            if (!box) return;
-
-            showToast(`Simulating payoff with +${this.formatCurrency(extra)}/mo...`);
-
-            try {
-                const token = localStorage.getItem('auth_token') || '';
-                const headers = { 'Content-Type': 'application/json', 'X-User-UID': 'demo_user' };
-                if (token) headers['Authorization'] = `Bearer ${token}`;
-
-                const res = await fetch('/api/v1/analytics/simulate-debt', {
-                    method: 'POST',
-                    headers,
-                    body: JSON.stringify({
-                        totalDebtRupees: totalDebt,
-                        annualInterestPercent: 12,
-                        currentMonthlyEMIRupees: totalEMI,
-                        extraMonthlyPaymentRupees: extra
-                    })
-                });
-
-                const data = await res.json();
-                if (data.success && data.data) {
-                    const sim = data.data;
-                    const baseline = sim.baselineMonthsToPayoff || 24;
-                    const accel = sim.acceleratedMonthsToPayoff || Math.max(1, baseline - Math.round(extra / 400));
-                    const savedMonths = sim.monthsSaved || (baseline - accel);
-                    const savedInterest = sim.formattedInterestSaved || this.formatCurrency(Math.round(totalDebt * 0.12 * (extra / 5000)));
-
-                    box.innerHTML = `
-                        <h4 style="margin:0 0 10px 0; color:var(--clr-green, #22c55e); font-size:0.98rem; font-weight:700; display:flex; align-items:center; gap:6px;">
-                            <i class="fa-solid fa-piggy-bank"></i> Optimization Projection
-                        </h4>
-                        <p style="font-size:0.88rem; color:var(--text-primary); line-height:1.5; margin:0 0 12px 0;">
-                            Adding <strong>${this.formatCurrency(extra)}/mo</strong> extra saves an estimated <strong>${savedInterest}</strong> in interest and makes you debt-free <strong>${savedMonths} months earlier</strong>!
-                        </p>
-                        <div style="background:var(--bg-card); padding:10px 12px; border-radius:8px; border:1px solid var(--border-color); font-size:0.8rem; color:var(--text-muted); display:flex; justify-content:space-between; align-items:center;">
-                            <span>Standard Payoff: <strong>${baseline} months</strong></span>
-                            <span style="color:var(--clr-green, #22c55e); font-weight:700;">Accelerated: ${accel} months</span>
-                        </div>
-                    `;
-                }
-            } catch (err) {
-                const savedInterest = Math.round(totalDebt * 0.1 * (extra / 5000));
-                const monthsSaved = Math.min(36, Math.max(1, Math.round(extra / 400)));
-                const accelMonths = Math.max(1, 24 - monthsSaved);
-
-                box.innerHTML = `
-                    <h4 style="margin:0 0 10px 0; color:var(--clr-green, #22c55e); font-size:0.98rem; font-weight:700; display:flex; align-items:center; gap:6px;">
-                        <i class="fa-solid fa-piggy-bank"></i> Optimization Projection
-                    </h4>
-                    <p style="font-size:0.88rem; color:var(--text-primary); line-height:1.5; margin:0 0 12px 0;">
-                        Adding <strong>${this.formatCurrency(extra)}/mo</strong> extra saves an estimated <strong>${this.formatCurrency(savedInterest)}</strong> in interest and makes you debt-free <strong>${monthsSaved} months earlier</strong>!
-                    </p>
-                    <div style="background:var(--bg-card); padding:10px 12px; border-radius:8px; border:1px solid var(--border-color); font-size:0.8rem; color:var(--text-muted); display:flex; justify-content:space-between; align-items:center;">
-                        <span>Standard Payoff: <strong>24 months</strong></span>
-                        <span style="color:var(--clr-green, #22c55e); font-weight:700;">Accelerated: ${accelMonths} months</span>
-                    </div>
-                `;
-            }
-        };
-
-        document.getElementById('btn-run-simulation')?.addEventListener('click', runSimulation);
-        document.getElementById('sim-extra-payment')?.addEventListener('input', runSimulation);
-        document.getElementById('sim-extra-payment')?.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') runSimulation();
+        const aiInsights = aiEngine.generateInsights({
+            txns: userTxns,
+            income: income,
+            expenses: expenses
         });
-    }
 
-    renderWealthView() {
-        const container = document.getElementById('view-wealth');
-        if (!container) return;
-
-        const txns = this.getTransactions();
-        const loans = this.getLoans();
-        const income = txns.filter(t => t.type === 'income').reduce((s, t) => s + (parseFloat(t.amount) || 0), 112074);
-        const expenses = txns.filter(t => t.type === 'expense' || !t.type).reduce((s, t) => s + (parseFloat(t.amount) || 0), 89983.68);
-        const netCash = income - expenses;
-        const totalDebt = loans.reduce((s, l) => s + (parseFloat(l.amountLeftToPay) || 0), 150000);
-        const netWorth = Math.max(0, netCash) + 255800 - totalDebt;
-
-        container.innerHTML = `
-            <!-- HEADER BAR -->
-            <div class="view-header" style="margin-bottom: 20px;">
-                <div>
-                    <h1 style="font-size: 1.8rem; font-weight: 700; display: flex; align-items: center; gap: 10px; margin: 0;">
-                        <i class="fa-solid fa-coins" style="color:var(--accent-color);"></i> Wealth, Assets & Net Worth
-                    </h1>
-                    <p class="subtitle text-muted" style="margin-top: 4px; font-size: 0.88rem;">Net Worth Trajectory = Assets (Cash + Investments) - Total Liabilities</p>
+        const insightsHTML = aiInsights.map(insight => `
+            <div class="fin-ai-insight-card" data-details='${JSON.stringify(insight.details || {}).replace(/'/g, "&apos;")}' style="display:flex; gap:12px; align-items:flex-start; padding: 12px; background: var(--bg-card, #1e1e1e); border-radius: 8px; border: 1px solid var(--border-color); cursor: pointer; transition: all 0.2s;">
+                <div style="width:36px; height:36px; border-radius:8px; background:${insight.iconBg}; color:${insight.iconColor}; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                    <i class="${insight.icon}"></i>
+                </div>
+                <div style="flex-grow: 1;">
+                    <div style="font-weight:600; font-size:0.95rem; color:var(--text-primary); display:flex; justify-content:space-between; align-items:center;">
+                        ${insight.title}
+                    </div>
+                    <div style="font-size:0.85rem; color:var(--text-muted); margin-top:4px; line-height: 1.4;">${insight.summary}</div>
+                    ${insight.impactText ? `<div style="font-size:0.85rem; font-weight:600; color:var(--clr-purple, #8e24aa); margin-top:8px;">${insight.impactText}</div>` : ''}
+                </div>
+                <div style="color:var(--text-muted); padding-top:4px;">
+                    <i class="fa-solid fa-chevron-right"></i>
                 </div>
             </div>
+        `).join('');
 
-            <!-- 3 TOP WEALTH METRIC CARDS -->
-            <div class="dashboard-grid" style="grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px;">
-                <div class="dash-card" style="display:flex; align-items:center; gap:16px;">
-                    <div style="width:46px; height:46px; border-radius:10px; background:rgba(34,197,94,0.15); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
-                        <i class="fa-solid fa-wallet" style="color:var(--clr-green, #22c55e); font-size:1.3rem;"></i>
+        const overviewHTML = `
+            <div class="fin-overview-dashboard" style="display:flex; flex-direction:column; gap:var(--spacing-4); width:100%;">
+                <!-- Header Section -->
+                <div class="overview-header" style="display:flex; justify-content:space-between; align-items:center;">
+                    <div>
+                        <h1 style="margin:0; font-size:1.8rem; font-weight:700; color:var(--text-primary);">Good morning, ${this.currentPersonFilter === 'All' ? 'there' : this.currentPersonFilter}!</h1>
+                        <p style="margin:4px 0 0 0; color:var(--text-muted);">Here's your financial summary.</p>
                     </div>
-                    <div style="flex:1; min-width:0;">
-                        <span class="dash-kpi-title" style="display:block;">Liquid Assets (Cash)</span>
-                        <div class="dash-kpi-val" style="color:var(--clr-green, #22c55e); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${this.formatCurrency(Math.max(0, netCash))}</div>
-                        <span style="font-size:0.75rem; color:var(--text-muted);">Available in liquid accounts</span>
+                    <div style="display:flex; gap:12px;">
+                        <select class="fin-form-input" style="width:auto; padding:8px 12px; margin:0;">
+                            <option>This Month</option>
+                            <option>Last Month</option>
+                            <option>This Year</option>
+                            <option>All Time</option>
+                        </select>
+                        <button class="btn btn-primary fin-overview-quick-add" style="padding:8px 16px;"><i class="fa-solid fa-plus"></i> Add Entry</button>
+                        <button class="btn btn-secondary fin-overview-upload" style="padding:8px 16px;"><i class="fa-solid fa-upload"></i> Upload</button>
                     </div>
                 </div>
 
-                <div class="dash-card" style="display:flex; align-items:center; gap:16px;">
-                    <div style="width:46px; height:46px; border-radius:10px; background:rgba(239,68,68,0.15); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
-                        <i class="fa-solid fa-building-columns" style="color:var(--clr-red, #ef4444); font-size:1.3rem;"></i>
+                <!-- Key Financial Snapshot -->
+                <div class="fin-kpi-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
+                    <div class="fin-kpi" style="background:var(--bg-card); border:1px solid var(--border-color); border-radius:12px; padding:16px;">
+                        <div style="color:var(--text-muted); font-size:0.9rem; margin-bottom:8px;">Total Income</div>
+                        <div style="font-size:1.6rem; font-weight:700; color:var(--text-primary);">${this.formatCurrency(income)}</div>
+                        <div style="font-size:0.8rem; color:var(--clr-green, #43a047); margin-top:8px;"><i class="fa-solid fa-arrow-up"></i> Active</div>
                     </div>
-                    <div style="flex:1; min-width:0;">
-                        <span class="dash-kpi-title" style="display:block;">Total Liabilities (Loans)</span>
-                        <div class="dash-kpi-val" style="color:var(--clr-red, #ef4444); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${this.formatCurrency(totalDebt)}</div>
-                        <span style="font-size:0.75rem; color:var(--text-muted);">Outstanding debt obligations</span>
+                    <div class="fin-kpi" style="background:var(--bg-card); border:1px solid var(--border-color); border-radius:12px; padding:16px;">
+                        <div style="color:var(--text-muted); font-size:0.9rem; margin-bottom:8px;">Total Expenses</div>
+                        <div style="font-size:1.6rem; font-weight:700; color:var(--text-primary);">${this.formatCurrency(expenses)}</div>
+                        <div style="font-size:0.8rem; color:var(--text-muted); margin-top:8px;">Tracked</div>
+                    </div>
+                    <div class="fin-kpi" style="background:var(--bg-card); border:1px solid var(--border-color); border-radius:12px; padding:16px;">
+                        <div style="color:var(--text-muted); font-size:0.9rem; margin-bottom:8px;">Net Balance</div>
+                        <div style="font-size:1.6rem; font-weight:700; color:var(--text-primary);">${this.formatCurrency(balance)}</div>
+                        <div style="font-size:0.8rem; color:var(--text-muted); margin-top:8px;">Cash Flow</div>
+                    </div>
+                    <div class="fin-kpi" style="background:var(--bg-card); border:1px solid var(--border-color); border-radius:12px; padding:16px;">
+                        <div style="color:var(--text-muted); font-size:0.9rem; margin-bottom:8px;">Savings Rate</div>
+                        <div style="font-size:1.6rem; font-weight:700; color:var(--text-primary);">${savingsRate}%</div>
+                        <div style="font-size:0.8rem; color:var(--text-muted); margin-top:8px;">Of Total Income</div>
                     </div>
                 </div>
 
-                <div class="dash-card" style="display:flex; align-items:center; gap:16px;">
-                    <div style="width:46px; height:46px; border-radius:10px; background:rgba(168,85,247,0.15); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
-                        <i class="fa-solid fa-vault" style="color:#a855f7; font-size:1.3rem;"></i>
-                    </div>
-                    <div style="flex:1; min-width:0;">
-                        <span class="dash-kpi-title" style="display:block;">Estimated Net Worth</span>
-                        <div class="dash-kpi-val" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${this.formatCurrency(netWorth)}</div>
-                        <span style="font-size:0.75rem; color:var(--clr-green, #22c55e);">↑ Positive wealth trajectory</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- ₹1 Crore Wealth Path Interactive Calculator -->
-            <div class="dash-card" style="padding: 24px; border-left: 4px solid var(--clr-green, #22c55e);">
-                <div style="display:flex; align-items:center; gap:10px; margin-bottom:6px;">
-                    <i class="fa-solid fa-chart-line" style="color:var(--clr-green, #22c55e); font-size:1.2rem;"></i>
-                    <h2 style="margin:0; font-size:1.15rem; font-weight:700; color:var(--text-primary);">₹1 Crore Wealth Path Calculator</h2>
-                </div>
-                <p class="subtitle text-muted" style="margin-bottom: 18px; font-size:0.85rem;">Simulate your compounding timeline to reach ₹1 Crore net worth based on monthly investments and return rate assumptions.</p>
-                
-                <div class="an-grid-2" style="gap: 20px; align-items:start;">
-                    <div style="display:flex; flex-direction:column; gap:14px;">
-                        <div>
-                            <label style="font-weight:600; font-size:0.84rem; display:block; margin-bottom:6px; color:var(--text-primary);">Monthly Investment (₹)</label>
-                            <input type="number" id="wealth-path-monthly" class="fin-form-input" value="25000" step="5000" style="padding:9px 14px; font-size:0.88rem;" placeholder="e.g. 25000">
+                <!-- Main Grid: Charts & Quick Add -->
+                <div style="display:grid; grid-template-columns: 2fr 1fr; gap:var(--spacing-4); align-items:stretch;">
+                    <!-- Charts Container -->
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:var(--spacing-4);">
+                        <div class="card" style="padding:20px; display:flex; flex-direction:column; justify-content:center; align-items:center;">
+                            <h3 style="margin-top:0; margin-bottom:16px; font-size:1.1rem; align-self:flex-start;">Expense Distribution</h3>
+                            <div style="width: 100%; max-width: 250px; aspect-ratio: 1; position: relative;">
+                                <canvas id="overviewExpenseDonut"></canvas>
+                            </div>
                         </div>
-                        <div>
-                            <label style="font-weight:600; font-size:0.84rem; display:block; margin-bottom:6px; color:var(--text-primary);">Assumed Annual Return Rate (%)</label>
-                            <input type="number" id="wealth-path-return" class="fin-form-input" value="12" step="1" style="padding:9px 14px; font-size:0.88rem;" placeholder="e.g. 12">
+                        <div class="card" style="padding:20px; display:flex; flex-direction:column; justify-content:center; align-items:center;">
+                            <h3 style="margin-top:0; margin-bottom:16px; font-size:1.1rem; align-self:flex-start;">Income vs Expenses</h3>
+                            <div style="width: 100%; max-width: 250px; aspect-ratio: 1; position: relative;">
+                                <canvas id="overviewIncomeExpenseBar"></canvas>
+                            </div>
                         </div>
                     </div>
                     
-                    <div id="wealth-path-box" style="background:var(--bg-hover); padding:18px; border-radius:10px; border:1px solid var(--border-color);">
-                        <h4 style="margin:0 0 8px 0; color:var(--clr-green, #22c55e); font-size:0.95rem; font-weight:700; display:flex; align-items:center; gap:6px;">
-                            <i class="fa-solid fa-gem"></i> Compounding Projection
-                        </h4>
-                        <p style="font-size:0.88rem; color:var(--text-primary); line-height:1.5; margin:0;">
-                            Investing <strong>₹25,000/mo</strong> at <strong>12% p.a.</strong> reaches ₹1 Crore in <strong>14.2 years</strong> (170 months).
-                        </p>
-                        <div style="font-size:0.8rem; color:var(--text-muted); margin-top:10px; padding-top:10px; border-top:1px dashed var(--border-color);">
-                            <i class="fa-solid fa-circle-info" style="margin-right:4px;"></i> Standard 12% equity CAGR assumption over a long-term compound horizon.
+                    <!-- Quick Add Form -->
+                    <div class="card" style="padding:20px; display:flex; flex-direction:column; justify-content:center;">
+                        <h3 style="margin-top:0; margin-bottom:16px; font-size:1.1rem;">Quick Add Expense</h3>
+                        <div class="fin-add-form" style="display:flex; flex-direction:column; gap:12px;">
+                            <input class="fin-form-input" id="quick-fin-title" placeholder="Title" type="text" style="padding:10px; font-size:0.95rem;">
+                            <div style="display:flex; gap:12px;">
+                                <input class="fin-form-input" id="quick-fin-amount" placeholder="Amount (₹)" type="number" style="padding:10px; font-size:0.95rem; width:50%;">
+                                <select class="fin-form-input" id="quick-fin-category" style="padding:10px; font-size:0.95rem; width:50%;">
+                                    <option value="Food">🍔 Food</option>
+                                    <option value="Transport">🚗 Transport</option>
+                                    <option value="Shopping">🛍️ Shopping</option>
+                                    <option value="Bills">📄 Bills</option>
+                                    <option value="Rent">🏠 Rent</option>
+                                    <option value="Other">📦 Other</option>
+                                </select>
+                            </div>
+                            <div style="display:flex; gap:12px;">
+                                <input class="fin-form-input" id="quick-fin-date" type="date" value="${new Date().toISOString().split('T')[0]}" style="padding:10px; font-size:0.95rem; width:50%;">
+                                <select class="fin-form-input" id="quick-fin-person" style="padding:10px; font-size:0.95rem; width:50%;">
+                                    <option value="">-- Personal / General --</option>
+                                    ${persons.map(p => `<option value="${p}" ${this.currentPersonFilter === p ? 'selected' : ''}>${p}</option>`).join('')}
+                                </select>
+                            </div>
+                            <button class="btn btn-primary" id="quick-fin-add-btn" style="justify-content:center; padding:12px; margin-top:4px;"><i class="fa-solid fa-check"></i> Save Expense</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Bottom Grid: Transactions & Insights -->
+                <div style="display:grid; grid-template-columns: 2fr 1fr; gap:var(--spacing-4);">
+                    <!-- Recent Transactions -->
+                    <div class="card" style="padding:20px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+                            <h3 style="margin:0; font-size:1.1rem;">Recent Transactions</h3>
+                            <button class="fin-overview-view-txns" style="background:none; border:none; color:var(--clr-blue, #2383e2); cursor:pointer; padding:0; font-weight:600;">View All <i class="fa-solid fa-arrow-right"></i></button>
+                        </div>
+                        <div style="display:flex; flex-direction:column;">
+                            ${recentTxnsHTML}
+                        </div>
+                    </div>
+                    
+                    <!-- AI Financial Opportunities -->
+                    <div class="card" style="padding:20px;">
+                        <h3 style="margin-top:0; margin-bottom:16px; font-size:1.1rem; display:flex; justify-content:space-between; align-items:center;">
+                            <span><i class="fa-solid fa-sparkles" style="color:var(--clr-purple, #8e24aa);"></i> AI Financial Opportunities</span>
+                        </h3>
+                        <div style="display:flex; flex-direction:column; gap:16px;">
+                            ${insightsHTML}
                         </div>
                     </div>
                 </div>
             </div>
         `;
 
-        const updateWealthPath = async () => {
-            const m = parseFloat(document.getElementById('wealth-path-monthly')?.value) || 25000;
-            const r = parseFloat(document.getElementById('wealth-path-return')?.value) || 12;
+        container.innerHTML = `
+            <div class="fin-container">
+                <div class="fin-sidebar">
+                    <h3>Filter by Person</h3>
+                    <button class="fin-person-btn ${this.currentPersonFilter === 'All' ? 'active' : ''}" data-person="All">
+                        <i class="fa-solid fa-users"></i> All Members
+                    </button>
+                    ${persons.map(p => `
+                        <div class="fin-person-item ${this.currentPersonFilter === p ? 'active' : ''}">
+                            <button class="fin-person-btn ${this.currentPersonFilter === p ? 'active' : ''}" data-person="${p}">
+                                <i class="fa-solid fa-user"></i> ${p}
+                            </button>
+                            <div class="fin-person-actions">
+                                <button class="fin-person-act-btn fin-person-edit" data-person="${p}" title="Edit / Rename Person">
+                                    <i class="fa-solid fa-pen"></i>
+                                </button>
+                                <button class="fin-person-act-btn fin-person-del" data-person="${p}" title="Remove Person">
+                                    <i class="fa-solid fa-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                    `).join('')}
+                    
+                    <div style="border-top: 1px solid var(--border-color); margin-top: var(--spacing-3); padding-top: var(--spacing-2);">
+                        <button class="fin-person-btn" id="fin-sidebar-add-person" style="color: var(--accent-color); font-weight: 600;">
+                            <i class="fa-solid fa-user-plus"></i> + Add Person
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="fin-main">
+                    <!-- Refined KPI Grid -->
+                    <div class="fin-kpi-grid">
+                        <div class="fin-kpi">
+                            <div class="fin-kpi-header">
+                                <h4>Total Income</h4>
+                                <div class="fin-kpi-icon green"><i class="fa-solid fa-arrow-trend-up"></i></div>
+                            </div>
+                            <div class="fin-kpi-data"><div class="value positive">${this.formatCurrency(income)}</div></div>
+                        </div>
+                        <div class="fin-kpi">
+                            <div class="fin-kpi-header">
+                                <h4>Total Expenses</h4>
+                                <div class="fin-kpi-icon red"><i class="fa-solid fa-arrow-trend-down"></i></div>
+                            </div>
+                            <div class="fin-kpi-data"><div class="value negative">${this.formatCurrency(expenses)}</div></div>
+                        </div>
+                        <div class="fin-kpi">
+                            <div class="fin-kpi-header">
+                                <h4>Net Balance</h4>
+                                <div class="fin-kpi-icon blue"><i class="fa-solid fa-scale-balanced"></i></div>
+                            </div>
+                            <div class="fin-kpi-data"><div class="value ${balance >= 0 ? 'positive' : 'negative'}">${this.formatCurrency(balance)}</div></div>
+                        </div>
+                        <div class="fin-kpi">
+                            <div class="fin-kpi-header">
+                                <h4>Monthly EMI</h4>
+                                <div class="fin-kpi-icon purple"><i class="fa-solid fa-calendar-check"></i></div>
+                            </div>
+                            <div class="fin-kpi-data"><div class="value negative">${this.formatCurrency(totalMonthlyEMI)}</div></div>
+                        </div>
+                        <div class="fin-kpi">
+                            <div class="fin-kpi-header">
+                                <h4>Total Debt</h4>
+                                <div class="fin-kpi-icon orange"><i class="fa-solid fa-building-columns"></i></div>
+                            </div>
+                            <div class="fin-kpi-data"><div class="value warning">${this.formatCurrency(totalDebt)}</div></div>
+                        </div>
+                    </div>
+                    
+                    <!-- Clean Section Header with Compact Pill Segment Toggle -->
+                    <div class="fin-section-header">
+                        <h2 class="fin-section-title">
+                            <i class="fa-solid fa-chart-line" style="color: var(--accent-color);"></i>
+                            ${this.currentViewMode === 'overview' ? 'Financial Overview' : (this.currentViewMode === 'expense' ? 'Expenses Management' : (this.currentViewMode === 'income' ? 'Income Management' : (this.currentViewMode === 'loans' ? 'Loans & Liabilities' : 'Bank Statement Analyzer')))}
+                        </h2>
+                        <div class="fin-type-toggle">
+                            <button class="fin-type-btn ${this.currentViewMode === 'overview' ? 'active' : ''}" data-type="overview">Overview</button>
+                            <button class="fin-type-btn ${this.currentViewMode === 'expense' ? 'active' : ''}" data-type="expense">Expenses</button>
+                            <button class="fin-type-btn ${this.currentViewMode === 'income' ? 'active' : ''}" data-type="income">Income</button>
+                            <button class="fin-type-btn ${this.currentViewMode === 'loans' ? 'active' : ''}" data-type="loans">Loans</button>
+                            <button class="fin-type-btn ${this.currentViewMode === 'analyzer' ? 'active' : ''}" data-type="analyzer"><i class="fa-solid fa-file-invoice-dollar"></i> Statement Analyzer</button>
+                        </div>
+                    </div>
+
+                    ${this.currentViewMode === 'overview' ? `
+                        ${overviewHTML}
+                    ` : this.currentViewMode === 'analyzer' ? `
+                        <div id="fin-statement-analyzer-container" style="width: 100%;"></div>
+                    ` : `
+                        <div class="fin-panels-grid">
+                            ${this.currentViewMode === 'loans' ? `
+                                <div class="card" style="grid-column: 1 / -1;">
+                                    <div class="card-header"><h2><i class="fa-solid fa-plus-circle"></i> Add New Loan</h2></div>
+                                    <div class="card-body">
+                                        <div class="fin-add-form">
+                                            <div class="fin-form-row">
+                                                <input class="fin-form-input" id="fin-title" placeholder="Loan Title (e.g. Home Loan)" type="text">
+                                                <input class="fin-form-input" id="fin-bank" placeholder="Bank Name (e.g. SBI, HDFC)" type="text">
+                                            </div>
+                                            <div class="fin-form-row">
+                                                <input class="fin-form-input" id="fin-sanctioned" placeholder="Amount Sanctioned (₹)" type="text">
+                                                <input class="fin-form-input" id="fin-paid-already" placeholder="Amount Already Paid (₹) (Optional)" type="text">
+                                            </div>
+                                            <div class="fin-form-row">
+                                                <input class="fin-form-input" id="fin-emi" placeholder="EMI per month (₹)" type="text">
+                                                <input class="fin-form-input" id="fin-rate" placeholder="Interest Rate (%)" type="number" min="0" step="0.1">
+                                            </div>
+                                            <div class="fin-form-row">
+                                                <input class="fin-form-input" id="fin-emi-date" placeholder="EMI Due Date (1-31)" type="number" min="1" max="31">
+                                                <select class="fin-form-input" id="fin-person">
+                                                    <option value="">-- Personal / General --</option>
+                                                    ${persons.map(p => `<option value="${p}" ${this.currentPersonFilter === p ? 'selected' : ''}>${p}</option>`).join('')}
+                                                    <option value="_NEW_" style="font-weight: bold; color: var(--accent-color);">+ Add New Person...</option>
+                                                </select>
+                                            </div>
+                                            <button class="btn btn-primary" id="fin-add-btn" style="justify-content: center; margin-top: 4px;"><i class="fa-solid fa-check"></i> Add Loan</button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div style="grid-column: 1 / -1; margin-top: var(--spacing-2);">
+                                    ${loansHTML}
+                                </div>
+                            ` : `
+                                <div class="card">
+                                    <div class="card-header"><h2><i class="fa-solid fa-plus-circle"></i> Add ${this.currentViewMode === 'expense' ? 'Expense' : 'Income'}</h2></div>
+                                    <div class="card-body">
+                                        <div class="fin-add-form">
+                                            <input class="fin-form-input" id="fin-title" placeholder="Title (e.g. June Salary, Rent)" type="text">
+                                            <div class="fin-form-row">
+                                                <input class="fin-form-input" id="fin-amount" placeholder="Total Amount (₹)" type="text">
+                                                <select class="fin-form-input" id="fin-category">
+                                                    ${this.currentViewMode === 'income' ? `
+                                                        <option value="Salary">💰 Salary (Per Month)</option>
+                                                        <option value="Freelance">💻 Freelance</option>
+                                                        <option value="Other">📦 Other Income</option>
+                                                    ` : `
+                                                        <option value="Rent">🏠 Rent</option>
+                                                        <option value="EMI">💳 EMI / Loan Payment</option>
+                                                        <option value="Credit Card">💳 Credit Card Bill</option>
+                                                        <option value="Food">🍔 Food</option>
+                                                        <option value="Transport">🚗 Transport</option>
+                                                        <option value="Entertainment">🎬 Entertainment</option>
+                                                        <option value="Bills">📄 Bills</option>
+                                                        <option value="Shopping">🛍️ Shopping</option>
+                                                        <option value="Health">🏥 Health</option>
+                                                        <option value="Other">📦 Other</option>
+                                                    `}
+                                                </select>
+                                            </div>
+                                            
+                                            ${this.currentViewMode === 'expense' ? `
+                                                <div class="fin-form-row">
+                                                    <select class="fin-form-input" id="fin-linked-loan" style="display: none;">
+                                                        <option value="">-- Select Linked Loan (Optional) --</option>
+                                                        ${loanOptionsHTML}
+                                                    </select>
+                                                    <input class="fin-form-input" id="fin-interest" placeholder="Interest Part (₹)" type="text" style="display: none;">
+                                                </div>
+                                            ` : ''}
+                                            
+                                            <div class="fin-form-row">
+                                                <select class="fin-form-input" id="fin-person">
+                                                    <option value="">-- Personal / General --</option>
+                                                    ${persons.map(p => `<option value="${p}" ${this.currentPersonFilter === p ? 'selected' : ''}>${p}</option>`).join('')}
+                                                    <option value="_NEW_" style="font-weight: bold; color: var(--accent-color);">+ Add New Person...</option>
+                                                </select>
+                                                <input class="fin-form-input" id="fin-date" type="date" value="${new Date().toISOString().split('T')[0]}">
+                                            </div>
+                                            <button class="btn btn-primary" id="fin-add-btn" style="justify-content: center; margin-top: 4px;"><i class="fa-solid fa-check"></i> Save Entry</button>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="card">
+                                    <div class="card-header"><h2><i class="fa-solid fa-chart-pie"></i> ${this.currentPersonFilter} Expenses</h2></div>
+                                    <div class="card-body">${catHTML}</div>
+                                </div>
+                            `}
+                        </div>
+
+                        <div class="card" style="margin-top: var(--spacing-3);">
+                            <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
+                                <h2><i class="fa-solid fa-receipt"></i> ${this.currentPersonFilter === 'All' ? 'Transactions & Entries' : `${this.currentPersonFilter}'s Transactions`}</h2>
+                            </div>
+                            <div class="card-body" style="padding:0;">
+                                ${tableHTML}
+                            </div>
+                        </div>
+                    `}
+                </div>
+            </div>
+        `;
+
+        if (this.currentViewMode === 'analyzer') {
+            this.bsa.init(document.getElementById('fin-statement-analyzer-container'), this.currentPersonFilter);
+        } else if (this.currentViewMode === 'overview') {
+            this.initOverviewCharts(categories, income, expenses);
             
-            try {
-                const token = localStorage.getItem('auth_token') || '';
-                const headers = { 'Content-Type': 'application/json', 'X-User-UID': 'demo_user' };
-                if (token) headers['Authorization'] = `Bearer ${token}`;
-
-                const res = await fetch('/api/v1/ai/wealth-path', {
-                    method: 'POST',
-                    headers,
-                    body: JSON.stringify({ currentNetWorthRupees: Math.max(0, netWorth), targetNetWorthRupees: 10000000, monthlyInvestmentRupees: m, annualReturnRatePercent: r })
+            document.querySelectorAll('.fin-ai-insight-card').forEach(card => {
+                card.addEventListener('click', () => {
+                    try {
+                        const details = JSON.parse(card.getAttribute('data-details') || '{}');
+                        this.openAIDrawer(details);
+                    } catch (e) {
+                        console.error('Failed to parse AI insight details', e);
+                    }
                 });
+            });
 
-                const data = await res.json();
-                const box = document.getElementById('wealth-path-box');
-                if (box && data.success && data.data) {
-                    box.innerHTML = `
-                        <h4 style="margin:0 0 8px 0; color:var(--clr-green, #22c55e); font-size:0.95rem; font-weight:700; display:flex; align-items:center; gap:6px;">
-                            <i class="fa-solid fa-gem"></i> Compounding Projection
-                        </h4>
-                        <p style="font-size:0.88rem; color:var(--text-primary); line-height:1.5; margin:0;">
-                            Investing <strong>${data.data.formattedMonthlyInvestment}/mo</strong> at <strong>${r}% p.a.</strong> reaches ₹1 Crore in <strong>${data.data.estimatedYearsToTarget} years</strong> (${data.data.estimatedMonthsToTarget} months).
-                        </p>
-                        <div style="font-size:0.8rem; color:var(--text-muted); margin-top:10px; padding-top:10px; border-top:1px dashed var(--border-color);">
-                            ${data.data.aiPathExplanation}
-                        </div>
-                    `;
+            document.querySelector('.fin-overview-quick-add')?.addEventListener('click', () => {
+                this.currentViewMode = 'expense';
+                this.render();
+            });
+            document.querySelector('.fin-overview-upload')?.addEventListener('click', () => {
+                this.currentViewMode = 'analyzer';
+                this.render();
+            });
+            document.querySelector('.fin-overview-view-txns')?.addEventListener('click', () => {
+                this.currentViewMode = 'expense';
+                this.render();
+            });
+            
+            document.getElementById('quick-fin-add-btn')?.addEventListener('click', () => {
+                const title = document.getElementById('quick-fin-title').value.trim();
+                const amount = parseFloat(document.getElementById('quick-fin-amount').value);
+                const category = document.getElementById('quick-fin-category').value;
+                const date = document.getElementById('quick-fin-date').value;
+                const person = document.getElementById('quick-fin-person').value;
+
+                if (!title || isNaN(amount) || amount <= 0 || !date) {
+                    showToast('Please provide valid title, amount, and date.', 'error');
+                    return;
                 }
-            } catch (err) {
-                // Fallback
-            }
-        };
 
-        document.getElementById('wealth-path-monthly')?.addEventListener('input', updateWealthPath);
-        document.getElementById('wealth-path-return')?.addEventListener('input', updateWealthPath);
-    }
-
-    renderGoalsView() {
-        const container = document.getElementById('view-goals');
-        if (!container) return;
-
-        const goals = this.storage.get('goals') || [
-            { id: 'g1', title: 'Emergency Reserve (3 Months)', target: 150000, current: 95000 },
-            { id: 'g2', title: 'Debt Payoff Acceleration', target: 200000, current: 80000 }
-        ];
-
-        container.innerHTML = `
-            <div class="view-header">
-                <div>
-                    <h1><i class="fa-solid fa-bullseye" style="color:var(--accent-color);"></i> Financial Goals & Emergency Reserves</h1>
-                    <p class="subtitle text-muted">Target-based Goal Trackers & Liquid Reserve Progress</p>
-                </div>
-            </div>
-            <div class="dashboard-grid" style="grid-template-columns: repeat(2, 1fr); margin-top: 16px;">
-                ${goals.map(g => {
-                    const pct = Math.min(100, Math.round(((g.current || 0) / (g.target || 1)) * 100));
-                    return `
-                        <div class="card" style="padding: 20px;">
-                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 12px;">
-                                <h3 style="margin:0; font-size:1.1rem; color:var(--text-primary);">${g.title}</h3>
-                                <span class="fin-badge income">${pct}% Achieved</span>
-                            </div>
-                            <div style="font-size:0.9rem; color:var(--text-muted); margin-bottom:8px;">
-                                Progress: <strong>${this.formatCurrency(g.current || 0)}</strong> / ${this.formatCurrency(g.target || 0)}
-                            </div>
-                            <div class="cat-bar"><div class="cat-bar-fill" style="width:${pct}%; background:var(--accent-color);"></div></div>
-                        </div>
-                    `;
-                }).join('')}
-            </div>
-        `;
-    }
-
-    renderForecastView() {
-        const container = document.getElementById('view-forecast');
-        if (!container) return;
-
-        container.innerHTML = `
-            <div class="view-header">
-                <div>
-                    <h1><i class="fa-solid fa-wand-magic-sparkles" style="color:#a855f7;"></i> Forecast & What-If Simulator</h1>
-                    <p class="subtitle text-muted">Multi-Year Wealth Projections under Conservative, Base, and Optimistic Scenarios</p>
-                </div>
-            </div>
-            <div class="card" style="padding:24px; margin-top:16px;">
-                <h2><i class="fa-solid fa-chart-area" style="color:var(--accent-color);"></i> 5-Year Wealth Growth Projection</h2>
-                <div class="an-grid-3" style="gap: 16px; margin-top: 20px;">
-                    <div style="background:var(--bg-hover); padding:16px; border-radius:var(--radius-md); border:1px solid var(--border-color);">
-                        <h4 style="color:var(--clr-blue); margin-bottom:8px;">Conservative (5% Return)</h4>
-                        <div style="font-size:1.5rem; font-weight:700;">${this.formatCurrency(2500000)}</div>
-                        <span style="font-size:0.8rem; color:var(--text-muted);">Est. Net Worth in 5 Years</span>
-                    </div>
-                    <div style="background:var(--bg-hover); padding:16px; border-radius:var(--radius-md); border:1px solid var(--accent-color);">
-                        <h4 style="color:var(--accent-color); margin-bottom:8px;">Base Scenario (10% Return)</h4>
-                        <div style="font-size:1.5rem; font-weight:700;">${this.formatCurrency(3800000)}</div>
-                        <span style="font-size:0.8rem; color:var(--text-muted);">Est. Net Worth in 5 Years</span>
-                    </div>
-                    <div style="background:var(--bg-hover); padding:16px; border-radius:var(--radius-md); border:1px solid var(--border-color);">
-                        <h4 style="color:var(--clr-green); margin-bottom:8px;">Optimistic (15% Return)</h4>
-                        <div style="font-size:1.5rem; font-weight:700;">${this.formatCurrency(5400000)}</div>
-                        <span style="font-size:0.8rem; color:var(--text-muted);">Est. Net Worth in 5 Years</span>
-                    </div>
-                </div>
-            </div>
-        `;
-    }
-
-    renderAICopilotView() {
-        const container = document.getElementById('view-ai-copilot');
-        if (!container) return;
-
-        container.innerHTML = `
-            <!-- HEADER BAR -->
-            <div class="view-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px; flex-wrap:wrap; gap:12px;">
-                <div>
-                    <h1 style="font-size: 1.8rem; font-weight: 700; display: flex; align-items: center; gap: 10px; margin: 0;">
-                        <i class="fa-solid fa-wand-magic-sparkles" style="color:#a855f7;"></i> AI Financial Copilot & Action Plan
-                    </h1>
-                    <p class="subtitle text-muted" style="margin-top: 4px; font-size: 0.88rem;">Context-Aware AI Assistant & Personal Financial Advisor</p>
-                </div>
-                <div style="display:flex; gap:10px; align-items:center;">
-                    <span class="dash-pill" style="color:var(--clr-green, #22c55e);"><i class="fa-solid fa-shield-halved" style="margin-right:4px;"></i> Server-Side AI Active</span>
-                </div>
-            </div>
-
-            <!-- MAIN COPILOT & ACTION PLAN GRID -->
-            <div class="dashboard-grid" style="grid-template-columns: 1.2fr 1fr; gap: 20px;">
-                <!-- LEFT CARD: COPILOT CHAT CENTER -->
-                <div class="dash-card" style="display:flex; flex-direction:column; height: 530px;">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-                        <h3 style="margin:0; font-size:1.05rem; font-weight:700; color:var(--text-primary); display:flex; align-items:center; gap:8px;">
-                            <i class="fa-solid fa-comments" style="color:var(--accent-color);"></i> Copilot Q&A Interface
-                        </h3>
-                        <span style="font-size:0.75rem; color:var(--text-muted);">Real-time context execution</span>
-                    </div>
-
-                    <!-- Chat Message Area -->
-                    <div id="copilot-chat-box" style="flex:1; overflow-y:auto; padding:14px; background:var(--bg-hover); border-radius:10px; border:1px solid var(--border-color); margin-bottom:12px; display:flex; flex-direction:column; gap:10px;">
-                        <div style="background:var(--bg-card); padding:14px; border-radius:10px; border-left:4px solid #a855f7; border:1px solid var(--border-color);">
-                            <div style="font-size:0.78rem; font-weight:700; color:#a855f7; margin-bottom:4px; display:flex; align-items:center; gap:6px;">
-                                <i class="fa-solid fa-wand-magic-sparkles"></i> FinanceOS Copilot
-                            </div>
-                            <div style="font-size:0.88rem; color:var(--text-primary); line-height:1.5;">
-                                Hello! Ask me anything about your cash flow, savings rate, debt payoff timeline, or household budget optimizations.
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Quick Suggestion Chips -->
-                    <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px;">
-                        <button class="copilot-chip dash-chip-btn" data-query="Where is my money going?">Where is my money going?</button>
-                        <button class="copilot-chip dash-chip-btn" data-query="Why did my spending increase?">Why did spending increase?</button>
-                        <button class="copilot-chip dash-chip-btn" data-query="When can I become debt free?">When can I become debt-free?</button>
-                        <button class="copilot-chip dash-chip-btn" data-query="Analyze my financial health score">Analyze financial health</button>
-                    </div>
-
-                    <!-- Input Bar -->
-                    <div style="display:flex; gap:8px;">
-                        <input type="text" id="copilot-input" class="fin-form-input" style="flex:1; font-size:0.88rem; padding:10px 14px;" placeholder="Ask Copilot e.g. Where is my money going?">
-                        <button class="btn btn-primary" id="copilot-send-btn" style="padding:10px 18px;"><i class="fa-solid fa-paper-plane"></i></button>
-                    </div>
-                </div>
-
-                <!-- RIGHT CARD: MONTHLY ACTION CHECKLIST -->
-                <div class="dash-card" style="display:flex; flex-direction:column; height: 530px;">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
-                        <h3 style="margin:0; font-size:1.05rem; font-weight:700; color:var(--text-primary); display:flex; align-items:center; gap:8px;">
-                            <i class="fa-solid fa-list-check" style="color:var(--clr-green, #22c55e);"></i> Personal Action Roadmap
-                        </h3>
-                        <span style="font-size:0.75rem; color:var(--clr-green, #22c55e); font-weight:600;">3 Tasks Active</span>
-                    </div>
-
-                    <div style="display:flex; flex-direction:column; gap:12px; flex:1; overflow-y:auto;">
-                        <div style="background:var(--bg-hover); padding:14px; border-radius:10px; border:1px solid var(--border-color); display:flex; gap:12px; align-items:start;">
-                            <input type="checkbox" checked style="width:18px; height:18px; margin-top:2px; accent-color:#a855f7; cursor:pointer;">
-                            <div style="flex:1;">
-                                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
-                                    <strong style="font-size:0.88rem; color:var(--text-primary);">Transfer 20% to Savings Reserve</strong>
-                                    <span class="badge" style="background:rgba(34,197,94,0.15); color:var(--clr-green, #22c55e); font-size:0.7rem;">Completed</span>
-                                </div>
-                                <p style="margin:0; font-size:0.78rem; color:var(--text-muted);">Auto-allocate net cash surplus to build 6-month emergency cushion.</p>
-                            </div>
-                        </div>
-
-                        <div style="background:var(--bg-hover); padding:14px; border-radius:10px; border:1px solid var(--border-color); display:flex; gap:12px; align-items:start;">
-                            <input type="checkbox" style="width:18px; height:18px; margin-top:2px; accent-color:#a855f7; cursor:pointer;">
-                            <div style="flex:1;">
-                                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
-                                    <strong style="font-size:0.88rem; color:var(--text-primary);">Audit Food & Dining Expenses</strong>
-                                    <span class="badge" style="background:rgba(245,158,11,0.15); color:var(--clr-orange, #f59e0b); font-size:0.7rem;">High Priority</span>
-                                </div>
-                                <p style="margin:0; font-size:0.78rem; color:var(--text-muted);">Reallocate 10% from discretionary Swiggy orders to accelerate debt payoff.</p>
-                            </div>
-                        </div>
-
-                        <div style="background:var(--bg-hover); padding:14px; border-radius:10px; border:1px solid var(--border-color); display:flex; gap:12px; align-items:start;">
-                            <input type="checkbox" style="width:18px; height:18px; margin-top:2px; accent-color:#a855f7; cursor:pointer;">
-                            <div style="flex:1;">
-                                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
-                                    <strong style="font-size:0.88rem; color:var(--text-primary);">Simulate ₹2,000 Extra EMI Payment</strong>
-                                    <span class="badge" style="background:rgba(59,130,246,0.15); color:var(--clr-blue, #3b82f6); font-size:0.7rem;">Optimization</span>
-                                </div>
-                                <p style="margin:0; font-size:0.78rem; color:var(--text-muted);">Adding ₹2,000/mo pre-payment saves ₹42,000 in interest over loan tenure.</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
-
-        document.getElementById('copilot-send-btn')?.addEventListener('click', async () => {
-            const input = document.getElementById('copilot-input');
-            const chatBox = document.getElementById('copilot-chat-box');
-            if (!input || !input.value.trim()) return;
-
-            const q = input.value.trim();
-            input.value = '';
-            chatBox.innerHTML += `<div style="background:linear-gradient(135deg, rgba(168,85,247,0.15) 0%, rgba(59,130,246,0.15) 100%); padding:12px; border-radius:10px; border:1px solid rgba(168,85,247,0.3); font-size:0.88rem; align-self:flex-end; max-width:85%;"><strong>You:</strong> ${q}</div>`;
-            const loadingId = `loading_${Date.now()}`;
-            chatBox.innerHTML += `<div id="${loadingId}" style="background:var(--bg-card); padding:12px; border-radius:10px; border-left:4px solid #a855f7; border:1px solid var(--border-color); font-size:0.85rem; font-style:italic;"><i class="fa-solid fa-spinner fa-spin" style="color:#a855f7; margin-right:6px;"></i> Analyzing financial ledger & consulting AI...</div>`;
-            chatBox.scrollTop = chatBox.scrollHeight;
-
-            try {
-                const token = localStorage.getItem('auth_token') || '';
-                const headers = {
-                    'Content-Type': 'application/json',
-                    'X-User-UID': 'demo_user'
+                const newTxn = {
+                    id: 'txn_' + Date.now(),
+                    title,
+                    amount,
+                    category,
+                    date,
+                    person: person === '_NEW_' ? 'Main' : person,
+                    type: 'expense',
+                    source: 'MANUAL',
+                    interest: 0
                 };
-                if (token) headers['Authorization'] = `Bearer ${token}`;
 
-                const res = await fetch('/api/v1/ai/copilot', {
-                    method: 'POST',
-                    headers,
-                    body: JSON.stringify({ query: q })
-                });
+                let savedTxns = this.storage.get('transactions') || [];
+                savedTxns.push(newTxn);
+                this.storage.set('transactions', savedTxns);
+                showToast('Quick expense logged!');
+                this.render();
+            });
+        }
 
-                const data = await res.json();
-                document.getElementById(loadingId)?.remove();
-
-                if (data.success && data.data) {
-                    const ans = data.data.answer || 'Analysis complete.';
-                    const provider = data.data.providerName || 'AI Financial Copilot';
-                    chatBox.innerHTML += `<div style="background:var(--bg-card); padding:14px; border-radius:10px; border-left:4px solid #a855f7; border:1px solid var(--border-color);">
-                        <div style="font-size:0.75rem; font-weight:700; color:#a855f7; margin-bottom:6px; display:flex; align-items:center; gap:6px;">
-                            <i class="fa-solid fa-wand-magic-sparkles"></i> ${provider}
-                        </div>
-                        <div style="font-size:0.88rem; color:var(--text-primary); line-height:1.5;">${ans}</div>
-                        ${data.data.recommendation ? `<div style="margin-top:10px; padding-top:8px; border-top:1px dashed var(--border-color); font-size:0.84rem; color:var(--clr-green, #22c55e);"><strong>Recommendation:</strong> ${data.data.recommendation}</div>` : ''}
-                    </div>`;
-                } else {
-                    chatBox.innerHTML += `<div style="background:var(--bg-card); padding:14px; border-radius:10px; border-left:4px solid #a855f7; border:1px solid var(--border-color);">
-                        <div style="font-size:0.75rem; font-weight:700; color:#a855f7; margin-bottom:6px;"><i class="fa-solid fa-wand-magic-sparkles"></i> AI Copilot</div>
-                        <div style="font-size:0.88rem; color:var(--text-primary);">Analysis rendered using real ledger data. Net cash flow remains positive.</div>
-                    </div>`;
-                }
-            } catch (err) {
-                document.getElementById(loadingId)?.remove();
-                chatBox.innerHTML += `<div style="background:var(--bg-card); padding:14px; border-radius:10px; border-left:4px solid #a855f7; border:1px solid var(--border-color);">
-                    <div style="font-size:0.75rem; font-weight:700; color:#a855f7; margin-bottom:6px;"><i class="fa-solid fa-wand-magic-sparkles"></i> FinanceOS Copilot</div>
-                    <div style="font-size:0.88rem; color:var(--text-primary);">Based on your ledger analysis, your total expenses are concentrated in Food & Housing. Reallocating 10% will improve your emergency reserve.</div>
-                </div>`;
-            }
-            chatBox.scrollTop = chatBox.scrollHeight;
-        });
-
-        document.querySelectorAll('#view-ai-copilot .copilot-chip').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const q = btn.dataset.query;
-                const input = document.getElementById('copilot-input');
-                const sendBtn = document.getElementById('copilot-send-btn');
-                if (input && sendBtn && q) {
-                    input.value = q;
-                    sendBtn.click();
+        // Sidebar Person Filter Buttons
+        document.querySelectorAll('.fin-person-btn[data-person]').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const person = e.currentTarget.dataset.person;
+                if (person) {
+                    this.currentPersonFilter = person;
+                    sessionStorage.setItem('prodos_active_family_member', person);
+                    this.render();
                 }
             });
         });
 
-        document.getElementById('copilot-input')?.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-                document.getElementById('copilot-send-btn')?.click();
+        // Edit Person Name handler
+        document.querySelectorAll('.fin-person-edit').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                const person = e.currentTarget.dataset.person;
+                if (!person) return;
+
+                const result = await showFormModal({
+                    title: `Rename ${person}`,
+                    icon: 'fa-solid fa-user-pen',
+                    submitLabel: 'Save Name',
+                    fields: [
+                        { key: 'name', label: 'Person / Member Name', type: 'text', value: person, required: true }
+                    ]
+                });
+
+                if (result && result.name.trim() && result.name.trim() !== person) {
+                    const newName = result.name.trim();
+
+                    // 1. Update custom_persons storage
+                    let customPersons = this.storage.get('custom_persons') || [];
+                    const idx = customPersons.indexOf(person);
+                    if (idx !== -1) customPersons[idx] = newName;
+                    else customPersons.push(newName);
+                    this.storage.set('custom_persons', customPersons);
+
+                    // 2. Update familyData members
+                    try {
+                        let familyData = JSON.parse(localStorage.getItem('prodos_family_data')) || { members: [] };
+                        if (familyData.members) {
+                            const mem = familyData.members.find(m => m.name.toLowerCase() === person.toLowerCase());
+                            if (mem) mem.name = newName;
+                            localStorage.setItem('prodos_family_data', JSON.stringify(familyData));
+                        }
+                    } catch(e) {}
+
+                    // 3. Update existing transactions with this person name
+                    let txns = this.storage.get('transactions') || [];
+                    txns = txns.map(t => {
+                        if (t.person === person) return { ...t, person: newName };
+                        return t;
+                    });
+                    this.storage.set('transactions', txns);
+
+                    // 4. Update active filter if was selected
+                    if (this.currentPersonFilter === person) {
+                        this.currentPersonFilter = newName;
+                        sessionStorage.setItem('prodos_active_family_member', newName);
+                    }
+
+                    showToast(`Renamed ${person} to ${newName}!`, 'success');
+                    this.render();
+                }
+            });
+        });
+
+        // Delete Person handler
+        document.querySelectorAll('.fin-person-del').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                const person = e.currentTarget.dataset.person;
+                if (!person) return;
+
+                const confirmed = await showConfirmModal(`
+                    <div style="text-align:left;">
+                        <h3 style="margin-bottom:8px; text-align:center; color:var(--clr-red);">Remove Person / Member?</h3>
+                        <p style="font-size:0.95rem; color:var(--text-primary); margin-bottom:12px;">
+                            Are you sure you want to remove <strong>${person}</strong> from your family filter list?
+                        </p>
+                    </div>
+                `, {
+                    title: `Remove ${person}`,
+                    confirmLabel: 'Remove Person',
+                    danger: true
+                });
+
+                if (!confirmed) return;
+
+                // 1. Add to deleted_persons blacklist
+                let deletedPersons = this.storage.get('deleted_persons') || [];
+                if (!deletedPersons.includes(person)) {
+                    deletedPersons.push(person);
+                    this.storage.set('deleted_persons', deletedPersons);
+                }
+
+                // 2. Remove from custom_persons
+                let customPersons = this.storage.get('custom_persons') || [];
+                customPersons = customPersons.filter(p => p !== person);
+                this.storage.set('custom_persons', customPersons);
+
+                // 3. Remove from familyData members
+                try {
+                    let familyData = JSON.parse(localStorage.getItem('prodos_family_data')) || { members: [] };
+                    if (familyData.members) {
+                        familyData.members = familyData.members.filter(m => m.name.toLowerCase() !== person.toLowerCase());
+                        localStorage.setItem('prodos_family_data', JSON.stringify(familyData));
+                    }
+                } catch(e) {}
+
+                // 4. Erase all transactions and loans belonging to this person
+                let txns = this.storage.get('transactions') || [];
+                txns = txns.filter(t => !t.person || t.person.toLowerCase() !== person.toLowerCase());
+                this.storage.set('transactions', txns);
+
+                let loans = this.storage.get('loans') || [];
+                loans = loans.filter(l => !l.person || l.person.toLowerCase() !== person.toLowerCase());
+                this.storage.set('loans', loans);
+
+                // Reset filter if active
+                if (this.currentPersonFilter === person) {
+                    this.currentPersonFilter = 'All';
+                    sessionStorage.setItem('prodos_active_family_member', 'All');
+                }
+
+                showToast(`Removed ${person}.`, 'info');
+                this.render();
+            });
+        });
+
+        // Add Person from Sidebar
+        document.getElementById('fin-sidebar-add-person')?.addEventListener('click', async () => {
+            const result = await showFormModal({
+                title: 'Add Family Member / Person',
+                icon: 'fa-solid fa-user-plus',
+                submitLabel: 'Add Person',
+                fields: [
+                    { key: 'name', label: 'Person Name', type: 'text', placeholder: 'e.g. Dad, Sarah, Alex', required: true }
+                ]
+            });
+
+            if (result && result.name.trim()) {
+                const name = result.name.trim();
+
+                // Clear from deleted_persons blacklist if re-added
+                let deletedPersons = this.storage.get('deleted_persons') || [];
+                deletedPersons = deletedPersons.filter(p => p.toLowerCase() !== name.toLowerCase());
+                this.storage.set('deleted_persons', deletedPersons);
+                
+                // Save to custom_persons storage
+                const customPersons = this.storage.get('custom_persons') || [];
+                if (!customPersons.includes(name)) {
+                    customPersons.push(name);
+                    this.storage.set('custom_persons', customPersons);
+                }
+
+                // Also add to family members in prodos_family_data if not exists
+                try {
+                    let familyData = JSON.parse(localStorage.getItem('prodos_family_data')) || { members: [] };
+                    if (!familyData.members) familyData.members = [];
+                    if (!familyData.members.some(m => m.name.toLowerCase() === name.toLowerCase())) {
+                        familyData.members.push({
+                            memberId: `mem_${Date.now()}`,
+                            name: name,
+                            relationship: 'Member'
+                        });
+                        localStorage.setItem('prodos_family_data', JSON.stringify(familyData));
+                    }
+                } catch (e) {}
+
+                showToast(`Added ${name}!`);
+                this.currentPersonFilter = name;
+                sessionStorage.setItem('prodos_active_family_member', name);
+                this.render();
             }
+        });
+
+        // Type toggle
+        document.querySelectorAll('.fin-type-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                this.currentViewMode = e.target.dataset.type;
+                this.render();
+            });
+        });
+        
+        // Handle Person Dropdown (+ Add New Person)
+        const personSelect = document.getElementById('fin-person');
+        if (personSelect) {
+            personSelect.addEventListener('change', async (e) => {
+                if (e.target.value === '_NEW_') {
+                    const result = await showFormModal({
+                        title: 'Add New Person',
+                        icon: 'fa-solid fa-user-plus',
+                        submitLabel: 'Add Person',
+                        fields: [
+                            { key: 'name', label: 'Person Name', type: 'text', placeholder: 'e.g. Dad, Sarah', required: true }
+                        ]
+                    });
+                    if (result && result.name.trim()) {
+                        const name = result.name.trim();
+                        const customPersons = this.storage.get('custom_persons') || [];
+                        if (!customPersons.includes(name)) {
+                            customPersons.push(name);
+                            this.storage.set('custom_persons', customPersons);
+                        }
+                        this.currentPersonFilter = name;
+                        sessionStorage.setItem('prodos_active_family_member', name);
+                        this.render();
+                    } else {
+                        personSelect.value = (this.currentPersonFilter !== 'All' && this.currentPersonFilter !== 'Main') ? this.currentPersonFilter : '';
+                    }
+                }
+            });
+        }
+
+        // Auto-categorize based on title
+        const titleInput = document.getElementById('fin-title');
+        titleInput?.addEventListener('input', (e) => {
+            const val = e.target.value.toLowerCase();
+            const catSelect = document.getElementById('fin-category');
+            if (!catSelect || this.currentViewMode === 'loans') return;
+            
+            if (this.currentViewMode === 'income') {
+                if(val.includes('salary')) catSelect.value = 'Salary';
+                else if(val.includes('freelance')) catSelect.value = 'Freelance';
+            } else {
+                if(val.includes('rent')) catSelect.value = 'Rent';
+                else if(val.includes('emi') || val.includes('repay')) catSelect.value = 'EMI';
+                else if(val.includes('credit card') || val.includes('cc bill')) catSelect.value = 'Credit Card';
+                else if(val.includes('food') || val.includes('lunch') || val.includes('dinner')) catSelect.value = 'Food';
+                catSelect.dispatchEvent(new Event('change'));
+            }
+        });
+        
+        // Attach formatting
+        attachCurrencyFormatter(document.getElementById('fin-amount'));
+        attachCurrencyFormatter(document.getElementById('fin-interest'));
+        attachCurrencyFormatter(document.getElementById('fin-sanctioned'));
+        attachCurrencyFormatter(document.getElementById('fin-paid-already'));
+        attachCurrencyFormatter(document.getElementById('fin-emi'));
+
+        // Add Entry
+        document.getElementById('fin-add-btn')?.addEventListener('click', () => {
+            const dateInput = document.getElementById('fin-date');
+            const date = dateInput ? dateInput.value : new Date().toISOString().split('T')[0];
+            const title = document.getElementById('fin-title').value.trim();
+            const personSel = document.getElementById('fin-person');
+            let person = personSel ? personSel.value : '';
+
+            if (!title) { showToast('Please enter a title', 'error'); return; }
+            if (person === '_NEW_') {
+                person = prompt('Enter name of new person:');
+                if (!person) return;
+            }
+
+            if (this.currentViewMode === 'loans') {
+                const bank = document.getElementById('fin-bank').value.trim();
+                const sanctioned = getRawValue(document.getElementById('fin-sanctioned'));
+                const paidAlready = getRawValue(document.getElementById('fin-paid-already')) || 0;
+                const emi = getRawValue(document.getElementById('fin-emi')) || 0;
+                const rate = parseFloat(document.getElementById('fin-rate').value) || 0;
+                const emiDate = parseInt(document.getElementById('fin-emi-date').value) || null;
+
+                if (!sanctioned || sanctioned <= 0) {
+                    showToast('Please enter a valid sanctioned amount.', 'error');
+                    return;
+                }
+                
+                if (paidAlready > sanctioned) {
+                    showToast('Amount already paid cannot exceed sanctioned amount.', 'error');
+                    return;
+                }
+
+                // Default lastEmiPaidMonth to current month to avoid immediately prompting them for a loan they just added
+                const today = new Date();
+                const currentMonthStr = today.getFullYear() + '-' + (today.getMonth() + 1);
+
+                const loans = this.storage.get('loans') || [];
+                loans.push({
+                    id: 'loan_' + Date.now(),
+                    title,
+                    person,
+                    bank,
+                    amountSanctioned: sanctioned,
+                    amountLeftToPay: sanctioned - paidAlready,
+                    emiPerMonth: emi,
+                    interestRate: rate,
+                    emiDate: emiDate,
+                    lastEmiPaidMonth: currentMonthStr,
+                    date
+                });
+                this.saveLoans(loans);
+                showToast('New Loan Account Added!');
+
+            } else {
+                const amount = getRawValue(document.getElementById('fin-amount'));
+                const category = document.getElementById('fin-category').value;
+
+                if (!amount || amount <= 0) {
+                    showToast('Please enter a valid amount.', 'error');
+                    return;
+                }
+
+                let interestAmount = 0;
+                let linkedLoanId = null;
+
+                if (this.currentViewMode === 'expense') {
+                    interestAmount = getRawValue(document.getElementById('fin-interest')) || 0;
+                    linkedLoanId = document.getElementById('fin-linked-loan')?.value;
+                }
+
+                const txns = this.storage.get('transactions') || [];
+                txns.push({
+                    id: 'txn_' + Date.now(),
+                    title,
+                    amount,
+                    interest: interestAmount,
+                    category,
+                    person,
+                    type: this.currentViewMode,
+                    linkedLoanId,
+                    date
+                });
+                this.saveTransactions(txns);
+
+                // Deduct from linked loan if EMI
+                if (linkedLoanId && category === 'EMI') {
+                    const loans = this.storage.get('loans') || [];
+                    const lIdx = loans.findIndex(l => l.id === linkedLoanId);
+                    if (lIdx > -1) {
+                        // Deduct the principal portion (Amount - Interest) from the outstanding loan balance
+                        const principalPaid = amount - interestAmount;
+                        loans[lIdx].amountLeftToPay = Math.max(0, loans[lIdx].amountLeftToPay - principalPaid);
+                        this.saveLoans(loans);
+                    }
+                }
+                showToast(`${this.currentViewMode === 'income' ? 'Income' : 'Expense'} logged!`);
+            }
+
+            if (this.currentPersonFilter !== 'All' && this.currentPersonFilter !== person) {
+                this.currentPersonFilter = person;
+            }
+            this.render();
+        });
+
+        // Delete Transaction
+        document.querySelectorAll('#view-finance .fin-del').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const ok = await showConfirmModal('Delete this transaction?', { title: 'Delete', confirmLabel: 'Delete', danger: true });
+                if (!ok) return;
+                
+                const id = btn.dataset.id;
+                const txns = this.storage.get('transactions');
+                const txn = txns.find(t => t.id === id);
+                
+                // If it was an EMI linked to a loan, restore the principal amount
+                if (txn && txn.linkedLoanId && txn.category === 'EMI') {
+                    const loans = this.storage.get('loans') || [];
+                    const lIdx = loans.findIndex(l => l.id === txn.linkedLoanId);
+                    if (lIdx > -1) {
+                        const principalPaid = txn.amount - (txn.interest || 0);
+                        loans[lIdx].amountLeftToPay += principalPaid;
+                        this.saveLoans(loans);
+                    }
+                }
+
+                const updatedTxns = txns.filter(t => t.id !== id);
+                this.saveTransactions(updatedTxns);
+                showToast('Transaction deleted.');
+                this.render();
+            });
+        });
+
+        // Edit Transaction
+        document.querySelectorAll('#view-finance .fin-edit').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const id = btn.dataset.id;
+                const txns = this.storage.get('transactions');
+                const txn = txns.find(t => t.id === id);
+                if (!txn) return;
+
+                const loans = this.storage.get('loans') || [];
+                const loanOptions = [{ value: '', label: '-- None --' }, ...loans.map(l => ({ value: l.id, label: l.title }))];
+                
+                const categoryOptions = [
+                    { value: 'Salary', label: '💰 Salary' },
+                    { value: 'Freelance', label: '💻 Freelance' },
+                    { value: 'Rent', label: '🏠 Rent' },
+                    { value: 'EMI', label: '💳 EMI' },
+                    { value: 'Credit Card', label: '💳 Credit Card' },
+                    { value: 'Food', label: '🍔 Food' },
+                    { value: 'Transport', label: '🚗 Transport' },
+                    { value: 'Entertainment', label: '🎬 Entertainment' },
+                    { value: 'Bills', label: '📄 Bills' },
+                    { value: 'Shopping', label: '🛍️ Shopping' },
+                    { value: 'Health', label: '🏥 Health' },
+                    { value: 'Other', label: '📦 Other' }
+                ];
+
+                const fields = [
+                    { key: 'title', label: 'Title', type: 'text', value: txn.title || txn.description || '', required: true },
+                    { key: 'amount', label: 'Amount (₹)', type: 'amount', value: txn.amount, required: true },
+                    { type: 'row', children: [
+                        { key: 'category', label: 'Category', type: 'dropdown', value: txn.category, options: categoryOptions },
+                        { key: 'date', label: 'Date', type: 'date', value: txn.date }
+                    ]},
+                    { key: 'person', label: 'Person', type: 'text', value: txn.person || '' }
+                ];
+
+                if (txn.type === 'expense') {
+                    fields.push({
+                        type: 'row', children: [
+                            { key: 'interest', label: 'Interest Part (₹)', type: 'amount', value: txn.interest || 0 },
+                            { key: 'linkedLoanId', label: 'Linked Loan', type: 'dropdown', value: txn.linkedLoanId || '', options: loanOptions }
+                        ]
+                    });
+                }
+
+                const result = await showFormModal({
+                    title: 'Edit Transaction',
+                    icon: 'fa-solid fa-pen',
+                    submitLabel: 'Save Changes',
+                    submitIcon: 'fa-solid fa-check',
+                    fields
+                });
+
+                if (!result) return;
+
+                // Handle EMI loan adjustment if linked loan changed or amount changed
+                if (txn.category === 'EMI' && txn.linkedLoanId) {
+                    const lIdx = loans.findIndex(l => l.id === txn.linkedLoanId);
+                    if (lIdx > -1) {
+                        const oldPrincipalPaid = txn.amount - (txn.interest || 0);
+                        loans[lIdx].amountLeftToPay += oldPrincipalPaid; // Revert old payment
+                    }
+                }
+
+                txn.title = result.title;
+                txn.amount = parseFloat(result.amount);
+                txn.category = result.category;
+                txn.date = result.date;
+                txn.person = result.person || '';
+                if (txn.type === 'expense') {
+                    txn.interest = parseFloat(result.interest) || 0;
+                    txn.linkedLoanId = result.linkedLoanId || null;
+                    
+                    if (txn.category === 'EMI' && txn.linkedLoanId) {
+                        const lIdx = loans.findIndex(l => l.id === txn.linkedLoanId);
+                        if (lIdx > -1) {
+                            const newPrincipalPaid = txn.amount - txn.interest;
+                            loans[lIdx].amountLeftToPay = Math.max(0, loans[lIdx].amountLeftToPay - newPrincipalPaid);
+                        }
+                    }
+                }
+                
+                this.saveLoans(loans);
+                this.saveTransactions(txns);
+                showToast('Transaction updated.');
+                this.render();
+            });
+        });
+
+        // Edit Loan
+        document.querySelectorAll('#view-finance .fin-edit-loan').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const id = btn.dataset.id;
+                const loans = this.storage.get('loans') || [];
+                const loan = loans.find(l => l.id === id);
+                if (!loan) return;
+
+                const fields = [
+                    { type: 'row', children: [
+                        { key: 'title', label: 'Loan Title', type: 'text', value: loan.title, required: true },
+                        { key: 'bank', label: 'Bank Name', type: 'text', value: loan.bank || '' }
+                    ]},
+                    { key: 'person', label: 'Person', type: 'text', value: loan.person },
+                    { type: 'row', children: [
+                        { key: 'amountSanctioned', label: 'Sanctioned Amount (₹)', type: 'amount', value: loan.amountSanctioned, required: true },
+                        { key: 'amountLeftToPay', label: 'Left to Pay (₹)', type: 'amount', value: loan.amountLeftToPay, required: true }
+                    ]},
+                    { type: 'row', children: [
+                        { key: 'emiPerMonth', label: 'EMI per month (₹)', type: 'amount', value: loan.emiPerMonth },
+                        { key: 'interestRate', label: 'Interest Rate (%)', type: 'number', value: loan.interestRate }
+                    ]},
+                    { key: 'emiDate', label: 'EMI Due Date (1-31)', type: 'number', value: loan.emiDate || '' }
+                ];
+
+                const result = await showFormModal({
+                    title: 'Edit Loan',
+                    icon: 'fa-solid fa-building-columns',
+                    submitLabel: 'Save Changes',
+                    submitIcon: 'fa-solid fa-check',
+                    fields
+                });
+
+                if (!result) return;
+
+                loan.title = result.title;
+                loan.bank = result.bank || '';
+                loan.person = result.person || '';
+                loan.amountSanctioned = parseFloat(result.amountSanctioned);
+                loan.amountLeftToPay = parseFloat(result.amountLeftToPay);
+                loan.emiPerMonth = parseFloat(result.emiPerMonth) || 0;
+                loan.interestRate = parseFloat(result.interestRate) || 0;
+                loan.emiDate = parseInt(result.emiDate) || null;
+
+                this.saveLoans(loans);
+                showToast('Loan updated.');
+                this.render();
+            });
+        });
+
+        // Delete/Close Loan
+        document.querySelectorAll('#view-finance .fin-del-loan').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const ok = await showConfirmModal('Close this loan account? (Linked transactions will be kept)', { title: 'Close Loan', confirmLabel: 'Close Loan', danger: true });
+                if (!ok) return;
+                
+                const id = btn.dataset.id;
+                const loans = this.storage.get('loans').filter(l => l.id !== id);
+                this.saveLoans(loans);
+                showToast('Loan account closed.');
+                this.render();
+            });
         });
     }
 
-    renderReportsView() {
-        const container = document.getElementById('view-reports');
-        if (!container) return;
+    initOverviewCharts(categories, totalIncome, totalExpenses) {
+        if (!window.Chart) {
+            console.warn('Chart.js not loaded. Charts will not be displayed.');
+            return;
+        }
 
-        container.innerHTML = `
-            <div class="view-header">
-                <div>
-                    <h1><i class="fa-solid fa-file-invoice-dollar" style="color:var(--accent-color);"></i> Financial Reports & Tax Statements</h1>
-                    <p class="subtitle text-muted">Export Monthly, Quarterly, and Yearly Financial Summaries</p>
-                </div>
+        // 1. Expense Distribution (Donut)
+        const donutCanvas = document.getElementById('overviewExpenseDonut');
+        if (donutCanvas) {
+            const labels = Object.keys(categories);
+            const data = Object.values(categories);
+            
+            // Soft colors
+            const bgColors = [
+                '#60a5fa', '#34d399', '#fbbf24', '#f87171', '#a78bfa', '#f472b6', '#38bdf8'
+            ];
+
+            if (this.overviewDonutChart) this.overviewDonutChart.destroy();
+            this.overviewDonutChart = new Chart(donutCanvas, {
+                type: 'doughnut',
+                data: {
+                    labels: labels.length ? labels : ['No Data'],
+                    datasets: [{
+                        data: data.length ? data : [1],
+                        backgroundColor: data.length ? bgColors.slice(0, data.length) : ['#e5e7eb'],
+                        borderWidth: 0,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { boxWidth: 12, font: {size: 11} } },
+                        tooltip: { callbacks: { label: (ctx) => data.length ? ' ₹' + ctx.raw.toLocaleString('en-IN') : ' No expenses yet' } }
+                    },
+                    cutout: '70%'
+                }
+            });
+        }
+
+        // 2. Income vs Expenses (Bar)
+        const barCanvas = document.getElementById('overviewIncomeExpenseBar');
+        if (barCanvas) {
+            if (this.overviewBarChart) this.overviewBarChart.destroy();
+            this.overviewBarChart = new Chart(barCanvas, {
+                type: 'bar',
+                data: {
+                    labels: ['This Period'],
+                    datasets: [
+                        {
+                            label: 'Income',
+                            data: [totalIncome],
+                            backgroundColor: '#43a047',
+                            borderRadius: 4
+                        },
+                        {
+                            label: 'Expenses',
+                            data: [totalExpenses],
+                            backgroundColor: '#e53935',
+                            borderRadius: 4
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { boxWidth: 12, font: {size: 11} } },
+                        tooltip: { callbacks: { label: (ctx) => ' ₹' + ctx.raw.toLocaleString('en-IN') } }
+                    },
+                    scales: {
+                        y: { beginAtZero: true, display: false },
+                        x: { grid: { display: false } }
+                    }
+                }
+            });
+        }
+    }
+
+    openAIDrawer(details) {
+        if (!details || !details.whatWeFound) return;
+        
+        const contentDiv = document.getElementById('ai-insight-drawer-content');
+        if (!contentDiv) return;
+
+        let html = `
+            <div>
+                <div style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">What We Found</div>
+                <div style="color: var(--text-primary); line-height: 1.5; font-size: 0.95rem;">${details.whatWeFound}</div>
             </div>
-            <div class="dashboard-grid" style="grid-template-columns: repeat(3, 1fr); margin-top: 16px;">
-                <div class="card" style="padding:20px; text-align:center;">
-                    <i class="fa-solid fa-file-csv" style="font-size:2.5rem; color:var(--clr-green); margin-bottom:12px;"></i>
-                    <h3>Monthly CSV Report</h3>
-                    <button class="btn btn-secondary" style="margin-top:12px; width:100%; justify-content:center;"><i class="fa-solid fa-download"></i> Export CSV</button>
-                </div>
-                <div class="card" style="padding:20px; text-align:center;">
-                    <i class="fa-solid fa-file-excel" style="font-size:2.5rem; color:var(--clr-blue); margin-bottom:12px;"></i>
-                    <h3>Quarterly Statement</h3>
-                    <button class="btn btn-secondary" style="margin-top:12px; width:100%; justify-content:center;"><i class="fa-solid fa-download"></i> Export Excel</button>
-                </div>
-                <div class="card" style="padding:20px; text-align:center;">
-                    <i class="fa-solid fa-file-pdf" style="font-size:2.5rem; color:var(--clr-red); margin-bottom:12px;"></i>
-                    <h3>Annual Tax Summary</h3>
-                    <button class="btn btn-secondary" style="margin-top:12px; width:100%; justify-content:center;"><i class="fa-solid fa-download"></i> Export PDF Summary</button>
-                </div>
+            
+            <div>
+                <div style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">Why It Matters</div>
+                <div style="color: var(--text-primary); line-height: 1.5; font-size: 0.95rem;">${details.whyItMatters}</div>
             </div>
+            
+            <div>
+                <div style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px;">What You Can Do</div>
+                <div style="display: flex; flex-direction: column; gap: 12px;">
         `;
+
+        if (details.whatYouCanDo && Array.isArray(details.whatYouCanDo)) {
+            details.whatYouCanDo.forEach(opt => {
+                html += `
+                    <div style="background: var(--bg-surface, rgba(255,255,255,0.05)); border: 1px solid var(--border-color); border-radius: 8px; padding: 16px;">
+                        <div style="font-weight: 600; font-size: 0.95rem; color: var(--text-primary); margin-bottom: 4px;">${opt.label}</div>
+                        <div style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.4; margin-bottom: 12px;">${opt.description}</div>
+                        
+                        <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border-color); padding-top: 12px;">
+                            <div style="font-size: 0.8rem; font-weight: 600; color: var(--clr-green, #43a047);"><i class="fa-solid fa-bolt"></i> ${opt.impact}</div>
+                            <button class="btn btn-primary" style="padding: 6px 12px; font-size: 0.85rem;" onclick="document.getElementById('ai-insight-drawer-close').click();">${opt.actionText}</button>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        html += `</div></div>`;
+        contentDiv.innerHTML = html;
+
+        // Open Drawer
+        const overlay = document.getElementById('ai-insight-drawer-overlay');
+        const drawer = document.getElementById('ai-insight-drawer');
+        
+        if (overlay && drawer) {
+            overlay.style.display = 'block';
+            // small delay for transition
+            setTimeout(() => {
+                overlay.style.opacity = '1';
+                drawer.style.right = '0';
+            }, 10);
+            
+            // Ensure global close handlers are bound exactly once
+            if (!this._drawerEventsBound) {
+                const closeBtn = document.getElementById('ai-insight-drawer-close');
+                const closeFn = () => {
+                    drawer.style.right = '-400px';
+                    overlay.style.opacity = '0';
+                    setTimeout(() => overlay.style.display = 'none', 300);
+                };
+                closeBtn?.addEventListener('click', closeFn);
+                overlay.addEventListener('click', closeFn);
+                this._drawerEventsBound = true;
+            }
+        }
     }
 }

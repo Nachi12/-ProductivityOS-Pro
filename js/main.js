@@ -53,23 +53,16 @@ function initApp() {
 
     // Module map for view switching
     const moduleMap = {
-        finance: financeManager,
-        money: financeManager,
-        analysis: financeManager,
-        debt: financeManager,
-        wealth: financeManager,
-        goals: financeManager,
-        forecast: financeManager,
-        'ai-copilot': financeManager,
-        reports: financeManager,
         dashboard: dashboard,
         tasks: taskManager,
         profile: profileManager,
         family: familyManager,
         calendar: calendarManager,
         habits: habitsManager,
+        finance: financeManager,
         reading: readingManager,
         projects: projectsManager,
+        goals: goalsManager,
         knowledge: knowledgeManager,
         notes: notesManager,
         meetings: meetingsManager,
@@ -81,7 +74,7 @@ function initApp() {
         const view = e.detail;
         if (moduleMap[view]) {
             try {
-                moduleMap[view].init(view);
+                moduleMap[view].init();
             } catch (err) {
                 console.error(`Error rendering view ${view}:`, err);
             }
@@ -92,7 +85,6 @@ function initApp() {
     const router = new Router();
 
     // Initial renders
-    financeManager.init();
     dashboard.init();
 
     // Quick Add Button Handler
@@ -102,13 +94,13 @@ function initApp() {
             icon: 'fa-solid fa-plus-circle',
             submitLabel: 'Create Item',
             fields: [
-                { key: 'type', label: 'Item Type', type: 'dropdown', value: 'expense', options: [
-                    { value: 'expense', label: 'Finance Expense' },
+                { key: 'type', label: 'Item Type', type: 'dropdown', value: 'task', options: [
                     { value: 'task', label: 'Task' },
                     { value: 'note', label: 'Note' },
-                    { value: 'goal', label: 'Goal' }
+                    { value: 'goal', label: 'Goal' },
+                    { value: 'expense', label: 'Finance Expense' }
                 ]},
-                { key: 'title', label: 'Title / Description', type: 'text', placeholder: 'e.g. Grocery Shopping or Subscription', required: true }
+                { key: 'title', label: 'Title / Description', type: 'text', placeholder: 'e.g. Prepare Q3 Project Deck', required: true }
             ]
         });
 
@@ -217,41 +209,8 @@ function initApp() {
         });
     }
 
-    // Collapsible Navigation Sections Handler
-    let collapsedSections = [];
-    try {
-        collapsedSections = JSON.parse(localStorage.getItem('prodos_nav_collapsed_sections')) || [];
-    } catch(e) {}
-
-    document.querySelectorAll('.nav-section[data-section]').forEach(sec => {
-        const secId = sec.dataset.section;
-        if (collapsedSections.includes(secId)) {
-            sec.classList.add('section-collapsed');
-        }
-    });
-
-    document.querySelectorAll('.collapsible-head').forEach(head => {
-        head.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const sec = head.closest('.nav-section');
-            if (!sec) return;
-            const secId = sec.dataset.section;
-            const isCollapsed = sec.classList.toggle('section-collapsed');
-
-            let saved = [];
-            try { saved = JSON.parse(localStorage.getItem('prodos_nav_collapsed_sections')) || []; } catch(e) {}
-            if (isCollapsed) {
-                if (!saved.includes(secId)) saved.push(secId);
-            } else {
-                saved = saved.filter(s => s !== secId);
-            }
-            localStorage.setItem('prodos_nav_collapsed_sections', JSON.stringify(saved));
-        });
-    });
-
-    // Mobile hamburger & bottom bar 'More' toggle
+    // Mobile hamburger menu
     const mobileToggle = document.getElementById('mobile-menu-toggle');
-    const mobileMoreBtn = document.getElementById('mobile-more-btn');
 
     if (mobileToggle) {
         mobileToggle.addEventListener('click', (e) => {
@@ -261,13 +220,6 @@ function initApp() {
             } else {
                 openMobileSidebar();
             }
-        });
-    }
-
-    if (mobileMoreBtn) {
-        mobileMoreBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            openMobileSidebar();
         });
     }
 
